@@ -1,3 +1,4 @@
 {
-    "cmake.sourceDirectory": "${workspaceFolder}/zephyr/app"
+    "cmake.sourceDirectory": "${workspaceFolder}/zephyr/app",
+    "makefile.configureOnOpen": false
 }

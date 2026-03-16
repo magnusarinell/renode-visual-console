@@ -25,6 +25,9 @@ target
 /zephyr/build/
 /zephyr/app/build/
 /zephyr/zephyr/
+/zephyr/modules/
+/zephyr/bootloader/
+/zephyr/tools/
 
 # GUI stack
 /frontend/node_modules/

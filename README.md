@@ -103,7 +103,8 @@ west init -l app
 west update
 west zephyr-export
 
-# 2. Install JavaScript dependencies
+# 2. Install JavaScript dependencies  (run from repo root)
+cd ..
 npm run deps
 
 # 3. Build firmware (STM32F4 Discovery target)
