@@ -34,3 +34,10 @@ target
 /frontend/dist/
 /backend/node_modules/
 /node_modules/
+
+# Robot Framework / renode-test output
+/logs/
+/snapshots/
+robot_output.xml
+log.html
+report.html

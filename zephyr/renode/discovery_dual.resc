@@ -3,6 +3,10 @@ emulation CreateUARTHub "uartHub"
 
 mach create "board_0"
 machine LoadPlatformDescription @platforms/boards/stm32f4_discovery-kit.repl
+# Mode indicator LEDs: PB12=Blink, PB13=Chase, PB14=Showcase
+machine LoadPlatformDescriptionFromString "modeBlinkLED: Miscellaneous.LED @ gpioPortB 12"
+machine LoadPlatformDescriptionFromString "modeChaseLED: Miscellaneous.LED @ gpioPortB 13"
+machine LoadPlatformDescriptionFromString "modeShowcaseLED: Miscellaneous.LED @ gpioPortB 14"
 showAnalyzer sysbus.usart3
 sysbus LoadELF $ORIGIN/../build/zephyr/zephyr.elf
 # Connect USART2 to UART Hub for inter-board communication
@@ -10,6 +14,9 @@ connector Connect sysbus.usart2 uartHub
 
 mach create "board_1"
 machine LoadPlatformDescription @platforms/boards/stm32f4_discovery-kit.repl
+machine LoadPlatformDescriptionFromString "modeBlinkLED: Miscellaneous.LED @ gpioPortB 12"
+machine LoadPlatformDescriptionFromString "modeChaseLED: Miscellaneous.LED @ gpioPortB 13"
+machine LoadPlatformDescriptionFromString "modeShowcaseLED: Miscellaneous.LED @ gpioPortB 14"
 showAnalyzer sysbus.usart3
 sysbus LoadELF $ORIGIN/../build/zephyr/zephyr.elf
 # Connect USART2 to UART Hub for inter-board communication

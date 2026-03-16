@@ -8,7 +8,8 @@
     "start:renode": "renode --robot-server-port 55555 --disable-gui --hide-monitor --hide-log --plain",
     "start:backend": "cross-env RENODE_ROBOT_PORT=55555 npm --prefix backend run start",
     "start:frontend": "npm --prefix frontend run dev -- --host",
-    "start": "concurrently -k -n renode,backend,frontend -c yellow,cyan,magenta \"npm run start:renode\" \"npm run start:backend\" \"npm run start:frontend\""
+    "start": "concurrently -k -n renode,backend,frontend -c yellow,cyan,magenta \"npm run start:renode\" \"npm run start:backend\" \"npm run start:frontend\"",
+    "test": "renode-test tests/robot/firmware.robot"
   },
   "devDependencies": {
     "concurrently": "^9.2.1",
