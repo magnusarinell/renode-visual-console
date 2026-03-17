@@ -1,0 +1,16 @@
+path add $ORIGIN
+mach create "daisy_0"
+machine LoadPlatformDescription @daisy_seed.repl
+sysbus LoadELF $ORIGIN/../build-daisy/zephyr/zephyr.elf
+
+# PB3 (sw0) has a pull-up — initialise HIGH so firmware starts in "not pressed" state
+sysbus.gpioPortB OnGPIO 3 true
+
+emulation SetGlobalQuantum "0.000025"
+emulation SetGlobalSerialExecution True
+
+# showAnalyzer is intentionally omitted — the backend owns the TerminalTester.
+
+# NOTE: 'start' is intentionally omitted here.
+# The backend creates the UART tester BEFORE starting the machine so that
+# firmware startup messages (printk) are captured by the tester.

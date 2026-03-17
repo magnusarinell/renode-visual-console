@@ -9,11 +9,12 @@ import { BACKEND_WS_URL, BOARDS } from "../constants";
  * @param {(running: boolean) => void} callbacks.onStatus
  * @param {(machine: string, pin: string, level: boolean|null) => void} callbacks.onPinState
  * @param {(stream: string, text: string, machine: string|null) => void} callbacks.onLog
+ * @param {(scenario: string) => void} [callbacks.onScriptLoaded]
  */
-export function useWebSocket({ onStatus, onPinState, onLog }) {
+export function useWebSocket({ onStatus, onPinState, onLog, onScriptLoaded }) {
   const wsRef = useRef(null);
-  const cbRef = useRef({ onStatus, onPinState, onLog });
-  cbRef.current = { onStatus, onPinState, onLog };
+  const cbRef = useRef({ onStatus, onPinState, onLog, onScriptLoaded });
+  cbRef.current = { onStatus, onPinState, onLog, onScriptLoaded };
 
   const [socketState, setSocketState] = useState("disconnected");
 
@@ -38,6 +39,14 @@ export function useWebSocket({ onStatus, onPinState, onLog }) {
 
         if (msg.type === "hello" || msg.type === "status") {
           cbRef.current.onStatus(Boolean(msg.running));
+          if (msg.type === "hello" && msg.scenario) {
+            cbRef.current.onScriptLoaded?.(msg.scenario);
+          }
+          return;
+        }
+
+        if (msg.type === "script_loaded" && typeof msg.scenario === "string") {
+          cbRef.current.onScriptLoaded?.(msg.scenario);
           return;
         }
 

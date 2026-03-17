@@ -1,0 +1,222 @@
+/* ─── Daisy Seed scenario styles ──────────────────────────────────────────── */
+
+/* ─── Board + pin-ctrl wrapper (overrides board-with-pin-ctrl width) ───────── */
+.daisy-board-with-ctrl {
+  width: 400px;
+  flex-shrink: 0;
+}
+
+/* Daisy uses very dark PCB colors — boost brightness when inactive so it's readable */
+.boards-inactive .daisy-board-with-ctrl {
+  filter: brightness(2);
+}
+
+/* PCB panel container */
+.daisy-pcb-panel {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.daisy-pcb {
+  background: #1a2a1a;          /* dark olive-green PCB */
+  border: 1.5px solid #2e4a2e;
+  border-radius: 0;
+  padding: 10px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.55);
+}
+
+/* ─── PCB silk-screen ─────────────────────────────────────────────────────── */
+.daisy-silk-top,
+.daisy-silk-bottom {
+  text-align: center;
+  padding: 4px 16px;
+  font-size: 0.65rem;
+  letter-spacing: 0.12em;
+  color: #c8e6c8;
+  opacity: 0.7;
+}
+
+.daisy-brand {
+  margin-right: 0.6em;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+}
+
+.daisy-model {
+  font-weight: 600;
+  letter-spacing: 0.12em;
+}
+
+/* ─── Body row ────────────────────────────────────────────────────────────── */
+.daisy-body {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+}
+
+/* ─── Pin headers ─────────────────────────────────────────────────────────── */
+.daisy-pins {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 4px 0;
+}
+
+/* Row alignment per side */
+.daisy-pins.left .pin-row  { justify-content: flex-end; }
+.daisy-pins.right .pin-row { justify-content: flex-start; }
+
+/* Daisy pin button: olive-tinted text */
+.daisy-pin-btn {
+  color: #c8e6c8;
+}
+.daisy-pin-btn.nc {
+  color: #5a7a5a;
+}
+
+/* Inner grid — slightly narrower columns than discovery */
+.daisy-pin-inner {
+  grid-template-columns: 8px 28px 22px;
+}
+
+/* Left side: dot on right (facing board centre), role badge on left */
+.daisy-pin-inner.daisy-pin-left {
+  grid-template-columns: 22px 28px 8px;
+}
+.daisy-pin-inner.daisy-pin-left .pin-dot  { order: 3; }
+.daisy-pin-inner.daisy-pin-left .pin-name { order: 2; text-align: right; }
+.daisy-pin-inner.daisy-pin-left .pin-role { order: 1; }
+
+/* ─── Centre area ─────────────────────────────────────────────────────────── */
+.daisy-center {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-evenly;
+  padding: 12px 8px;
+  gap: 16px;
+  border-left: 1px solid #2e4a2e;
+  border-right: 1px solid #2e4a2e;
+}
+
+/* ─── MCU & codec chip blocks ─────────────────────────────────────────────── */
+.daisy-mcu-block {
+  display: flex;
+  flex-direction: row;
+  gap: 12px;
+  align-items: center;
+}
+
+.daisy-mcu,
+.daisy-codec {
+  background: #111;
+  border: 1px solid #444;
+  border-radius: 3px;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.daisy-mcu-name {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #e0e0e0;
+  letter-spacing: 0.06em;
+}
+
+.daisy-mcu-sub {
+  font-size: 0.55rem;
+  color: #888;
+  letter-spacing: 0.04em;
+}
+
+/* ─── Output LED indicator ────────────────────────────────────────────────── */
+.daisy-indicator-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+}
+
+.daisy-ind-labels {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.daisy-ind-pin {
+  font-family: "JetBrains Mono", "Fira Mono", monospace;
+  font-size: 0.7rem;
+  color: #c8e6c8;
+  font-weight: 600;
+}
+
+.daisy-ind-desc {
+  font-size: 0.58rem;
+  color: #7a9a7a;
+}
+
+.daisy-led-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1.5px solid #444;
+  background: #333;
+  transition: background 0.15s, box-shadow 0.15s;
+}
+
+.daisy-led-dot.high {
+  background: #22c55e;
+  border-color: #16a34a;
+  box-shadow: 0 0 8px rgba(34,197,94,0.7);
+}
+
+.daisy-led-dot.low {
+  background: #1a3a1a;
+  border-color: #2e4a2e;
+}
+
+.daisy-led-dot.floating {
+  background: #2a2a1a;
+  border-color: #494933;
+}
+
+
+/* ─── COM card — same structure as Discovery uart-card, olive theme ────────── */
+.daisy-com-card {
+  border: 1px solid #2e4a2e;
+  border-top: none;
+  background: #0a1208;
+}
+
+.daisy-com-label {
+  font-size: 0.65rem;
+  color: #98c898;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  padding: 0 0.25rem;
+}
+
+/* ─── Pin control tab — olive override ───────────────────────────────────── */
+.daisy-pin-ctrl-tab {
+  border-color: #2e4a2e;
+  background: #111a11;
+}
+
+.daisy-pin-ctrl-tab .pin-ctrl-label {
+  color: #c8e6c8;
+}
+
+.daisy-ctrl-stm {
+  font-size: 0.48rem;
+  color: #7a9a7a;
+  text-align: center;
+  letter-spacing: 0.03em;
+}

@@ -1,3 +1,4 @@
 # Zephyr build output
 app/build/
+build-daisy/
 zephyr/

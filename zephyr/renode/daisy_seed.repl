@@ -1,0 +1,32 @@
+// Electrosmith Daisy Seed platform description for Renode
+//
+// The Daisy Seed uses an STM32H750IBK6 (BGA144), which is the value-line
+// variant of the STM32H743 family — identical core (Cortex-M7) and peripherals,
+// with 128 KB of internal flash instead of 2 MB.
+//
+// For simulation we base on stm32h743.repl (same peripheral set) and add the
+// two external memories present on the Daisy Seed hardware:
+//   • IS25LP064A QSPI NOR flash  — code XIP region (0x90000000)
+//   • IS42S16400J-6BLI SDRAM     — audio/heap RAM   (0xC0000000)
+//
+// The ELF built with the Renode overlay links code to internal flash
+// (0x08000000), so QSPI memory is only modelled for forward-compatibility
+// with applications that XIP from the QSPI region.
+
+using "platforms/cpus/stm32h743.repl"
+
+// External QSPI NOR flash
+// IS25LP064A: 64 Mbit (8 MB) on Daisy Seed v1.x; larger on v1.10+
+// Model 64 MB to cover all variants.
+qspiFlash: Memory.MappedMemory @ sysbus 0x90000000
+    size: 0x4000000
+
+// External SDRAM is already provided by stm32h743.repl as sdramBank1 @ 0xC0000000 (256 MB)
+// No override needed.
+
+// LED on PA15 (led0, GPIO_ACTIVE_HIGH) — registers a GPIO connection so that
+// gpioPortA GetGPIOs reports PA15's output state when driven by firmware.
+led0: Miscellaneous.LED @ gpioPortA
+
+gpioPortA:
+    15 -> led0@0

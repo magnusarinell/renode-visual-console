@@ -60,6 +60,41 @@ h1 {
   color: #ffd87a;
 }
 
+/* ─── Board Visualizer view toggle ───────────────────────────────────────── */
+.heading-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.view-toggle {
+  display: inline-flex;
+  border: 1px solid #2d3c40;
+  border-radius: 999px;
+  overflow: hidden;
+  font-size: 0.82rem;
+}
+
+.view-btn {
+  background: transparent;
+  border: none;
+  color: #7a9eab;
+  padding: 0.3rem 0.85rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.view-btn:hover {
+  background: #1a2f38;
+  color: #c8e6f0;
+}
+
+.view-btn.active {
+  background: #1e4050;
+  color: #89d4f0;
+  font-weight: 600;
+}
+
 .board-selector {
   display: inline-flex;
   gap: 0.45rem;
@@ -95,14 +130,71 @@ h1 {
 }
 
 .boards-panel {
-  flex: 0 0 auto;
+  position: relative;
+  flex: 1;
   min-width: 0;
 }
 
+.boards-content {
+  /* default: no special treatment */
+}
+
+.boards-content.boards-inactive {
+  filter: grayscale(1);
+  pointer-events: none;
+}
+
+.board-load-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.board-load-prompt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  background: #0d1416;
+  border: 1px solid #2d4a58;
+  border-radius: 12px;
+  padding: 2rem 2.5rem;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.65);
+}
+
+.board-load-prompt-text {
+  margin: 0;
+  color: #c0d8e2;
+  font-size: 0.95rem;
+  text-align: center;
+}
+
+.board-load-btn {
+  border-radius: 8px;
+  border: 1px solid #3ca487;
+  background: linear-gradient(160deg, #0d5641, #083128);
+  color: #89f0b9;
+  padding: 0.6rem 1.4rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  letter-spacing: 0.04em;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.board-load-btn:hover {
+  border-color: #65d4ab;
+  background: linear-gradient(160deg, #165a45, #0d4030);
+}
+
 .logs-panel {
-  flex: 1;
-  min-width: 280px;
-  width: 0;
+  flex: 0 0 500px;
+  width: 500px;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 0;
@@ -264,7 +356,7 @@ h1 {
   flex-direction: row;
   align-items: stretch;
   min-width: 0;
-  width: 450px;
+  width: 460px;
   flex-shrink: 0;
 }
 

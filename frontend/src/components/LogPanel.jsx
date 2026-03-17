@@ -4,9 +4,10 @@ const TAB_LABELS = {
   system:  "Web Server",
   monitor: "Monitor",
   hub:     "UART Hub",
+  uart:    "UART",
 };
 
-export function LogPanel({ systemLogs, monitorLogs, uartHubLogs, activeTab, onTabChange }) {
+export function LogPanel({ systemLogs, monitorLogs, uartHubLogs, daisyUartLogs = [], activeTab, onTabChange }) {
   return (
     <aside className="logs-panel">
       <div className="log-subtabs">
@@ -34,6 +35,11 @@ export function LogPanel({ systemLogs, monitorLogs, uartHubLogs, activeTab, onTa
         {activeTab === "hub" && uartHubLogs.map((entry) => (
           <div className="log-plain-line" key={entry.id}>
             <span className="log-plain-board">[{entry.machine || BOARDS[0].id}]</span>{entry.line}
+          </div>
+        ))}
+        {activeTab === "uart" && daisyUartLogs.map((entry) => (
+          <div className="log-plain-line" key={entry.id}>
+            {entry.line}
           </div>
         ))}
       </div>

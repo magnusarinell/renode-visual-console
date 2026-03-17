@@ -18,6 +18,7 @@ const RENODE_ROBOT_HOST = process.env.RENODE_ROBOT_HOST || "localhost";
 const RENODE_ROBOT_PORT = process.env.RENODE_ROBOT_PORT
   ? Number(process.env.RENODE_ROBOT_PORT)
   : 55555;
+const RENODE_UART = process.env.RENODE_UART || "sysbus.usart3";
 const MACHINES = (process.env.RENODE_MACHINES || "board_0,board_1")
   .split(",")
   .map((s) => s.trim())
@@ -31,6 +32,14 @@ const simScript = process.env.RENODE_SCRIPT
 const simScriptPosix = simScript.replace(/\\/g, "/");
 const renodeCmd = process.env.RENODE_CMD || "renode";
 
+// Derive initial scenario from the loaded script path (simScript must be defined first)
+const _isDaisyScript    = simScript.includes("daisy");
+// Mutable active scenario config (can be switched at runtime)
+let activeMachines       = _isDaisyScript ? ["daisy_0"]       : [...MACHINES];
+let activeUartPeripheral = _isDaisyScript ? "sysbus.usart1"   : (RENODE_UART || "sysbus.usart3");
+let activeHubPeripheral  = _isDaisyScript ? null              : "sysbus.usart2";
+let activeScenario       = _isDaisyScript ? "daisy"           : "discovery";
+
 let renode = null;
 let renodeSocket = null;
 let renodeRunning = false;
@@ -42,6 +51,7 @@ const hubTesterReadyByMachine = new Map();
 const hubTesterIdByMachine = new Map();
 const hubDrainTimers = new Map();
 let renodeConnecting = false;
+let renodeLoading    = false; // true while a scenario is being hot-switched
 let _renodeRetryTimer = null;
 let rpcQueue = Promise.resolve();
 
@@ -72,9 +82,11 @@ function sleep(ms) {
 
 function resolveMachine(machine) {
   if (!machine) {
-    return DEFAULT_MACHINE;
+    return activeMachines[0] || DEFAULT_MACHINE;
   }
-  return MACHINES.includes(machine) ? machine : DEFAULT_MACHINE;
+  // Return the machine as-is — don't substitute stale machine names with new
+  // active ones, as that would cause stale RPC calls to run against the wrong machine.
+  return machine;
 }
 
 function enqueueRpc(task) {
@@ -227,15 +239,53 @@ function parseGpioList(text) {
   const regex = /\((\d+),\s*GPIO:\s*(set|unset)\)/gi;
   let m = regex.exec(text);
   while (m) {
-    map.set(Number(m[1]), m[2].toLowerCase() === "set" ? true : null);
+    map.set(Number(m[1]), m[2].toLowerCase() === "set");
     m = regex.exec(text);
   }
   return map;
 }
 
+// Atomically pulse a GPIO pin LOW then HIGH, advancing simulation time in between
+// so the firmware can observe the press within a single RPC chain.
+async function handleGpioPulse(msg) {
+  if (!renodeReady) return;
+  const parsed = parsePinLabel(msg.pin);
+  if (!parsed) return;
+  const machine = resolveMachine(msg.machine);
+  if (!activeMachines.includes(machine)) return;
+  const portName = `sysbus.gpioPort${parsed.port}`;
+
+  // Drive pin LOW (active/pressed for ACTIVE_LOW button)
+  await executeRenodeCommandSilent(`${portName} OnGPIO ${parsed.pin} false`, machine);
+  if (!activeMachines.includes(machine)) return; // scenario may have switched during await
+  emitLog("system", `GPIO ${msg.pin} \u2192 LOW (pulse, ${machine})`, machine);
+
+  // Advance simulation time so firmware's gpio_pin_get_dt polls see the pressed state.
+  const testerId = uartTesterIdByMachine.get(machine);
+  if (testerId) {
+    await callXmlRpc("WaitForNextLineOnUart", [`timeout=0.1`, `testerId=${testerId}`]).catch(() => {});
+  } else {
+    await callXmlRpc("WaitForNextLineOnUart", [`timeout=0.1`]).catch(() => {});
+  }
+
+  // Release pin HIGH — recheck machine is still active before executing
+  if (!activeMachines.includes(machine)) return;
+  await executeRenodeCommandSilent(`${portName} OnGPIO ${parsed.pin} true`, machine);
+  if (!activeMachines.includes(machine)) return;
+  emitLog("system", `GPIO ${msg.pin} \u2192 HIGH (pulse release, ${machine})`, machine);
+
+  // Read back and emit final state
+  const readResult = await executeRenodeCommandSilent(`${portName} GetGPIOs`, machine);
+  if (readResult.status === "PASS" && activeMachines.includes(machine)) {
+    const gpioMap = parseGpioList(readResult.return || "");
+    const level = gpioMap.has(parsed.pin) ? gpioMap.get(parsed.pin) : null;
+    emit({ type: "pin_state", machine, pin: msg.pin, level, ts: Date.now() });
+  }
+}
+
 async function handleGpioRequest(msg) {
   if (!renodeReady) {
-    emitLog("system", "Renode is not running or not ready yet. Start simulator first.");
+    if (!renodeLoading) emitLog("system", "Renode is not running or not ready yet. Start simulator first.");
     return;
   }
 
@@ -246,6 +296,8 @@ async function handleGpioRequest(msg) {
   }
 
   const machine = resolveMachine(msg.machine);
+  // Drop requests for machines not belonging to the currently loaded scenario
+  if (!activeMachines.includes(machine)) return;
   const portName = `sysbus.gpioPort${parsed.port}`;
 
   if (msg.op === "write") {
@@ -255,14 +307,28 @@ async function handleGpioRequest(msg) {
     emitLog("system", `GPIO ${msg.pin} \u2192 ${level ? "HIGH" : "LOW"} (${machine})`, machine);
     const writeResult = await executeRenodeCommandSilent(cmd, machine);
     if (writeResult.status === "FAIL") {
-      emitLog("system", `GPIO write failed for ${msg.pin}: ${writeResult.error}`);
+      if (activeMachines.includes(machine)) {
+        emitLog("system", `GPIO write failed for ${msg.pin}: ${writeResult.error}`);
+      }
       return;
     }
+    // Advance simulation time so the firmware observes the injected level.
+    if (!activeMachines.includes(machine)) return;
+    const writeTid = uartTesterIdByMachine.get(machine);
+    if (uartTesterReadyByMachine.get(machine)) {
+      await (writeTid
+        ? callXmlRpc("WaitForNextLineOnUart", [`timeout=0.1`, `testerId=${writeTid}`])
+        : callXmlRpc("WaitForNextLineOnUart", [`timeout=0.1`])
+      ).catch(() => {});
+    }
+    if (!activeMachines.includes(machine)) return;
   }
 
   const readResult = await executeRenodeCommandSilent(`${portName} GetGPIOs`, machine);
   if (readResult.status === "FAIL") {
-    emitLog("system", `GPIO read failed for ${msg.pin}: ${readResult.error}`);
+    if (activeMachines.includes(machine)) {
+      emitLog("system", `GPIO read failed for ${msg.pin}: ${readResult.error}`);
+    }
     return;
   }
 
@@ -272,15 +338,13 @@ async function handleGpioRequest(msg) {
 }
 
 async function handleGpioScanRequest(msg) {
-  if (!renodeReady) {
-    return;
-  }
+  if (!renodeReady) return;
 
   const requestedPins = Array.isArray(msg.pins) ? msg.pins : [];
   const machine = resolveMachine(msg.machine);
-  if (!requestedPins.length) {
-    return;
-  }
+  // Drop scans for machines not in the active scenario
+  if (!activeMachines.includes(machine)) return;
+  if (!requestedPins.length) return;
 
   const grouped = new Map();
   for (const pinLabel of requestedPins) {
@@ -298,7 +362,9 @@ async function handleGpioScanRequest(msg) {
   for (const [port, pins] of grouped.entries()) {
     const result = await executeRenodeCommandSilent(`sysbus.gpioPort${port} GetGPIOs`, machine);
     if (result.status === "FAIL") {
-      emitLog("system", `GPIO scan failed for port ${port}: ${result.error}`);
+      if (activeMachines.includes(machine) && !renodeLoading) {
+        emitLog("system", `GPIO scan failed for port ${port}: ${result.error}`);
+      }
       continue;
     }
 
@@ -325,7 +391,7 @@ async function startUartStreaming(machine = DEFAULT_MACHINE) {
   let testerReady = false;
   for (let i = 0; i < 20 && renodeRunning && renodeReady; i += 1) {
     try {
-      const createResult = await callXmlRpc("CreateTerminalTester", ["sysbus.usart3", "", targetMachine]);
+      const createResult = await callXmlRpc("CreateTerminalTester", [activeUartPeripheral, "", targetMachine]);
       if (createResult.status === "PASS") {
         const idSource = [createResult.return, createResult.output, createResult.line]
           .filter(Boolean)
@@ -360,21 +426,24 @@ async function startUartStreaming(machine = DEFAULT_MACHINE) {
   uartTesterReadyByMachine.set(targetMachine, true);
   const testerId = uartTesterIdByMachine.get(targetMachine);
   if (testerId) {
-    emitLog("system", `UART streaming enabled on sysbus.usart3 (${targetMachine}, tester ${testerId})`, targetMachine);
+    emitLog("system", `UART streaming enabled on ${activeUartPeripheral} (${targetMachine}, tester ${testerId})`, targetMachine);
   } else {
-    emitLog("system", `UART streaming enabled on sysbus.usart3 (${targetMachine})`, targetMachine);
+    emitLog("system", `UART streaming enabled on ${activeUartPeripheral} (${targetMachine})`, targetMachine);
   }
 }
 
 async function drainUartLines(machine = DEFAULT_MACHINE, maxLines = 2, timeoutSeconds = "0.05") {
   const targetMachine = resolveMachine(machine);
+  // Bail if this machine is no longer part of the active scenario
+  if (!activeMachines.includes(machine) && !activeMachines.includes(targetMachine)) return;
   if (!uartTesterReadyByMachine.get(targetMachine) || !renodeReady || !renodeRunning) {
     return;
   }
 
-  await executeRenodeCommandSilent("version", targetMachine).catch(() => {});
-
   for (let i = 0; i < maxLines; i += 1) {
+    // Re-check on every iteration — scenario may have switched mid-loop
+    if (!activeMachines.includes(machine) && !activeMachines.includes(targetMachine)) return;
+    if (!uartTesterReadyByMachine.get(targetMachine) || !renodeReady || !renodeRunning) return;
     try {
       const testerId = uartTesterIdByMachine.get(targetMachine);
       let res = testerId
@@ -402,7 +471,7 @@ async function drainUartLines(machine = DEFAULT_MACHINE, maxLines = 2, timeoutSe
             /Terminal tester failed/i.test(res.error) ||
             /Next line event: failure/i.test(res.error));
 
-        if (res.error && !expectedNoLine && !/no testers available/i.test(res.error)) {
+        if (res.error && !expectedNoLine && !/no testers available/i.test(res.error) && activeMachines.includes(targetMachine) && !renodeLoading) {
           emitLog("system", `UART read error: ${res.error}`, targetMachine);
         }
         return;
@@ -426,7 +495,7 @@ function startUartDrainLoop(machine) {
   }
   const id = setInterval(() => {
     drainUartLines(targetMachine).catch(() => {});
-  }, 400);
+  }, 200);
   uartDrainTimers.set(targetMachine, id);
 }
 
@@ -442,7 +511,7 @@ async function startHubStreaming(machine = DEFAULT_MACHINE) {
   let testerReady = false;
   for (let i = 0; i < 20 && renodeRunning && renodeReady; i += 1) {
     try {
-      const createResult = await callXmlRpc("CreateTerminalTester", ["sysbus.usart2", "", targetMachine]);
+      const createResult = await callXmlRpc("CreateTerminalTester", [activeHubPeripheral, "", targetMachine]);
       if (createResult.status === "PASS") {
         const idSource = [createResult.return, createResult.output, createResult.line]
           .filter(Boolean)
@@ -466,13 +535,16 @@ async function startHubStreaming(machine = DEFAULT_MACHINE) {
   }
   if (!testerReady) return;
   hubTesterReadyByMachine.set(targetMachine, true);
-  emitLog("system", `Hub streaming enabled on sysbus.usart2 (${targetMachine})`, targetMachine);
+  emitLog("system", `Hub streaming enabled on ${activeHubPeripheral} (${targetMachine})`, targetMachine);
 }
 
 async function drainHubLines(machine = DEFAULT_MACHINE, maxLines = 4, timeoutSeconds = "0.05") {
   const targetMachine = resolveMachine(machine);
+  if (!activeMachines.includes(machine) && !activeMachines.includes(targetMachine)) return;
   if (!hubTesterReadyByMachine.get(targetMachine) || !renodeReady || !renodeRunning) return;
   for (let i = 0; i < maxLines; i += 1) {
+    if (!activeMachines.includes(machine) && !activeMachines.includes(targetMachine)) return;
+    if (!hubTesterReadyByMachine.get(targetMachine) || !renodeReady || !renodeRunning) return;
     try {
       const testerId = hubTesterIdByMachine.get(targetMachine);
       let res = testerId
@@ -500,7 +572,7 @@ function startHubDrainLoop(machine) {
   if (hubDrainTimers.has(targetMachine)) return;
   const id = setInterval(() => {
     drainHubLines(targetMachine).catch(() => {});
-  }, 400);
+  }, 200);
   hubDrainTimers.set(targetMachine, id);
 }
 
@@ -514,7 +586,7 @@ function stopHubDrainLoops() {
 // ─── GPIO push loop ───────────────────────────────────────────────────────────
 // Tracked GPIO ports and their pins for the push scan
 const GPIO_PUSH_PORTS = {
-  A: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+  A: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
   B: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
   D: [12, 13, 14, 15],
 };
@@ -597,12 +669,22 @@ async function connectToRobotServer() {
     renodeReady = true;
     emit({ type: "status", running: true, ts: Date.now() });
 
-    for (const machine of MACHINES) {
+    for (const machine of activeMachines) {
       await startUartStreaming(machine);
-      await drainUartLines(machine, 10, "0.05");
+      // For Daisy: the resc does not call start so simulation is paused until the tester
+      // is ready. Start it now so no startup UART output is missed.
+      if (activeScenario === "daisy") {
+        // Pass no machine context — 'start' is a global emulation command.
+        const startRes = await callXmlRpc("ExecuteCommand", ["start"]).catch(e => ({ status: "FAIL", error: e.message }));
+        emitLog("system", `Daisy simulation start: ${startRes.status}${startRes.error ? " — " + startRes.error : ""}`, machine);
+      }
+      // 15 iterations × 50ms = 750ms coverage, enough for firmware's k_msleep(500) startup.
+      await drainUartLines(machine, 15, "0.05");
       startUartDrainLoop(machine);
-      await startHubStreaming(machine);
-      startHubDrainLoop(machine);
+      if (activeHubPeripheral) {
+        await startHubStreaming(machine);
+        startHubDrainLoop(machine);
+      }
       startGpioPushLoop(machine);
     }
   } catch (err) {
@@ -623,6 +705,89 @@ async function connectToRobotServer() {
     }, 5000);
   } finally {
     renodeConnecting = false;
+  }
+}
+
+async function handleLoadScript(scenario) {
+  if (!renodeReady) {
+    emitLog("system", "Cannot switch scenario: Renode not ready.");
+    return;
+  }
+
+  emitLog("system", `Switching to ${scenario} scenario…`);
+  renodeLoading = true;
+  renodeReady = false;
+  emit({ type: "status", running: false, ts: Date.now() });
+
+  // Tear down existing streamers
+  stopUartDrainLoops();
+  stopHubDrainLoops();
+  stopGpioPushLoops();
+  uartTesterReadyByMachine.clear();
+  uartTesterIdByMachine.clear();
+  hubTesterReadyByMachine.clear();
+  hubTesterIdByMachine.clear();
+  _gpioPrevState = {};
+  // Remove all currently active machines from Renode one by one
+  const machinesToRemove = [...activeMachines]; // snapshot before we overwrite activeMachines
+
+  // Update active config first so resolveMachine works for the new scenario
+  if (scenario === "daisy") {
+    activeMachines       = ["daisy_0"];
+    activeUartPeripheral = "sysbus.usart1";
+    activeHubPeripheral  = null;
+  } else {
+    activeMachines       = ["board_0", "board_1"];
+    activeUartPeripheral = "sysbus.usart3";
+    activeHubPeripheral  = "sysbus.usart2";
+  }
+  activeScenario = scenario;
+
+  // Flush any queued RPC calls from stopped loops
+  rpcQueue = Promise.resolve();
+
+  // Remove old machines — 'Clear' resets the full emulation
+  for (const m of machinesToRemove) {
+    emitLog("system", `Clearing machine ${m}…`);
+  }
+  const clearResult = await executeRenodeCommandSilent("Clear", null).catch((e) => ({ status: "FAIL", error: e.message }));
+  emitLog("system", `Clear: ${clearResult.status === "PASS" ? "OK" : (clearResult.error || clearResult.status)}`);
+  await sleep(300); // let Renode settle
+
+  const newScript = path.join(
+    repoRoot, "zephyr", "renode",
+    scenario === "daisy" ? "daisy_seed.resc" : "discovery_dual.resc"
+  );
+  const newScriptPosix = newScript.replace(/\\/g, "/");
+  emitLog("system", `Loading script: ${newScriptPosix}`);
+
+  const result = await executeRenodeScript(newScriptPosix);
+  emitLog("system", `ExecuteScript result: ${result.status}${result.error ? " — " + result.error : ""}`);
+  if (result.status === "FAIL") {
+    emitLog("system", `Load failed: ${result.error}`);
+    renodeLoading = false;
+    return;
+  }
+
+  renodeRunning = true;
+  renodeReady   = true;
+  renodeLoading = false;
+  emit({ type: "status", running: true, ts: Date.now() });
+  emit({ type: "script_loaded", scenario, machines: activeMachines, ts: Date.now() });
+
+  for (const machine of activeMachines) {
+    await startUartStreaming(machine);
+    if (activeScenario === "daisy") {
+      const startRes = await callXmlRpc("ExecuteCommand", ["start"]).catch(e => ({ status: "FAIL", error: e.message }));
+      emitLog("system", `Daisy simulation start: ${startRes.status}${startRes.error ? " — " + startRes.error : ""}`, machine);
+    }
+    await drainUartLines(machine, 15, "0.05");
+    startUartDrainLoop(machine);
+    if (activeHubPeripheral) {
+      await startHubStreaming(machine);
+      startHubDrainLoop(machine);
+    }
+    startGpioPushLoop(machine);
   }
 }
 
@@ -657,7 +822,7 @@ function emitLog(stream, text, machine = null) {
 function startRenode() {
   if (RENODE_MODE === "robot") {
     if (renodeRunning && renodeReady) {
-      for (const machine of MACHINES) {
+      for (const machine of activeMachines) {
         if (!uartTesterReadyByMachine.get(machine)) {
           startUartStreaming(machine)
             .then(() => {
@@ -801,7 +966,7 @@ function stopRenode() {
 
 function sendMonitorCommand(command, machine = DEFAULT_MACHINE) {
   if (!renodeReady) {
-    emitLog("system", "Renode is not running or not ready yet. Start simulator first.");
+    if (!renodeLoading) emitLog("system", "Renode is not running or not ready yet. Start simulator first.");
     return;
   }
 
@@ -853,7 +1018,7 @@ wss.on("connection", (ws) => {
   console.log("WebSocket client connected");
 
   // Send current state and buffered log history before joining broadcast set
-  ws.send(JSON.stringify({ type: "hello", running: renodeRunning, ts: Date.now() }));
+  ws.send(JSON.stringify({ type: "hello", running: renodeRunning, scenario: activeScenario, ts: Date.now() }));
   for (const entry of logBuffer) {
     if (ws.readyState === 1) ws.send(JSON.stringify(entry));
   }
@@ -895,6 +1060,13 @@ wss.on("connection", (ws) => {
         }
       }
 
+      if (msg.type === "load_script" && typeof msg.scenario === "string") {
+        handleLoadScript(msg.scenario).catch((err) =>
+          emitLog("system", `Load script error: ${err.message}`)
+        );
+        return;
+      }
+
       if (msg.type === "command" && typeof msg.command === "string") {
         sendMonitorCommand(msg.command, resolveMachine(msg.machine));
         return;
@@ -923,6 +1095,11 @@ wss.on("connection", (ws) => {
         } else {
           emitLog("system", `No ADC channel mapping for pin ${msg.pin}`);
         }
+        return;
+      }
+
+      if (msg.type === "gpio" && msg.op === "pulse") {
+        handleGpioPulse(msg).catch((err) => emitLog("system", `GPIO pulse error: ${err.message}`));
         return;
       }
 
