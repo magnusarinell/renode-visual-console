@@ -10,6 +10,12 @@ case "$cmd" in
   build-disco)
     bash "$ROOT_DIR/scripts/build_disco.sh" "$@"
     ;;
+  build-daisy)
+    bash "$ROOT_DIR/scripts/build_daisy.sh" "$@"
+    ;;
+  setup-daisy)
+    bash "$ROOT_DIR/scripts/setup_libdaisy.sh" "$@"
+    ;;
   renode)
     bash "$ROOT_DIR/scripts/run_renode.sh" "$@"
     ;;
@@ -37,6 +43,8 @@ Usage: bash dev.sh <command>
 
 Commands:
   build-disco   Build firmware for STM32F4 Discovery (stm32f4_disco, used by Renode)
+  build-daisy   Build a libDaisy example (default: seed/Blink)
+  setup-daisy   Clone DaisyExamples + create toolchain wrappers
   build         Build firmware for nucleo_f446re (alternative target)
   renode        Build firmware and start Renode simulation (dual-board)
   clean         Remove Zephyr build directory

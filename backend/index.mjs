@@ -32,6 +32,10 @@ const simScript = process.env.RENODE_SCRIPT
 const simScriptPosix = simScript.replace(/\\/g, "/");
 const renodeCmd = process.env.RENODE_CMD || "renode";
 
+// Optional: path to a libDaisy ELF to load instead of the default Blink example.
+// Passed to Renode as $elf variable before loading the daisy_seed.resc script.
+const DAISY_ELF = process.env.DAISY_ELF || "";
+
 // Derive initial scenario from the loaded script path (simScript must be defined first)
 const _isDaisyScript    = simScript.includes("daisy");
 // Mutable active scenario config (can be switched at runtime)
@@ -196,7 +200,7 @@ function callXmlRpc(keyword, args = []) {
             res.on("end", () => resolve(parseRpcResponse(data)));
           }
         );
-        req.setTimeout(12000, () => {
+        req.setTimeout(120_000, () => {
           req.destroy();
           reject(new Error("XML-RPC timeout"));
         });
@@ -277,7 +281,7 @@ async function handleGpioPulse(msg) {
   // Read back and emit final state
   const readResult = await executeRenodeCommandSilent(`${portName} GetGPIOs`, machine);
   if (readResult.status === "PASS" && activeMachines.includes(machine)) {
-    const gpioMap = parseGpioList(readResult.return || "");
+    const gpioMap = parseGpioList(readResult.return || readResult.output || "");
     const level = gpioMap.has(parsed.pin) ? gpioMap.get(parsed.pin) : null;
     emit({ type: "pin_state", machine, pin: msg.pin, level, ts: Date.now() });
   }
@@ -332,7 +336,7 @@ async function handleGpioRequest(msg) {
     return;
   }
 
-  const gpioMap = parseGpioList(readResult.return || "");
+  const gpioMap = parseGpioList(readResult.return || readResult.output || "");
   const level = gpioMap.has(parsed.pin) ? gpioMap.get(parsed.pin) : null;
   emit({ type: "pin_state", machine, pin: msg.pin, level, ts: Date.now() });
 }
@@ -368,7 +372,7 @@ async function handleGpioScanRequest(msg) {
       continue;
     }
 
-    const gpioMap = parseGpioList(result.return || "");
+    const gpioMap = parseGpioList(result.return || result.output || "");
     for (const item of pins) {
       const level = gpioMap.has(item.pin) ? gpioMap.get(item.pin) : null;
       emit({ type: "pin_state", machine, pin: item.label, level, ts: Date.now() });
@@ -384,6 +388,18 @@ async function executeRenodeScript(scriptPath) {
     emitLog("system", `Script failed: ${result.error}`);
   }
   return result;
+}
+
+// If a daisy ELF override is set (env or runtime), tell Renode about it
+// BEFORE the .resc script is loaded.  The script uses $elf ?= <default>.
+let _daisyElfOverride = DAISY_ELF;
+
+async function setDaisyElfVariable(elfPath) {
+  const elf = elfPath || _daisyElfOverride;
+  if (!elf || activeScenario !== "daisy") return;
+  const elfPosix = path.resolve(repoRoot, elf).replace(/\\/g, "/");
+  emitLog("system", `Setting Renode $elf = ${elfPosix}`);
+  await callXmlRpc("ExecuteCommand", [`$elf=@${elfPosix}`]);
 }
 
 async function startUartStreaming(machine = DEFAULT_MACHINE) {
@@ -432,7 +448,8 @@ async function startUartStreaming(machine = DEFAULT_MACHINE) {
   }
 }
 
-async function drainUartLines(machine = DEFAULT_MACHINE, maxLines = 2, timeoutSeconds = "0.05") {
+async function drainUartLines(machine = DEFAULT_MACHINE, maxLines = 2, timeoutSeconds) {
+  if (timeoutSeconds === undefined) timeoutSeconds = activeScenario === "daisy" ? "0.0005" : "0.05";
   const targetMachine = resolveMachine(machine);
   // Bail if this machine is no longer part of the active scenario
   if (!activeMachines.includes(machine) && !activeMachines.includes(targetMachine)) return;
@@ -585,24 +602,31 @@ function stopHubDrainLoops() {
 
 // ─── GPIO push loop ───────────────────────────────────────────────────────────
 // Tracked GPIO ports and their pins for the push scan
-const GPIO_PUSH_PORTS = {
+const GPIO_PUSH_PORTS_DISCOVERY = {
   A: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
   B: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
   D: [12, 13, 14, 15],
 };
+const GPIO_PUSH_PORTS_DAISY = {
+  C: [7],  // User LED on Daisy Seed
+};
+function getGpioPushPorts() {
+  return activeScenario === "daisy" ? GPIO_PUSH_PORTS_DAISY : GPIO_PUSH_PORTS_DISCOVERY;
+}
 
 let _gpioPrevState = {}; // key: `${machine}:P${port}${pin}` -> level
 const gpioScanTimers = new Map();
 
 async function pushGpioState(machine) {
   if (!renodeReady || !renodeRunning) return;
-  for (const [port, pins] of Object.entries(GPIO_PUSH_PORTS)) {
+  for (const [port, pins] of Object.entries(getGpioPushPorts())) {
     let result;
     try {
       result = await executeRenodeCommandSilent(`sysbus.gpioPort${port} GetGPIOs`, machine);
     } catch { return; }
     if (!result || result.status === "FAIL") continue;
-    const gpioMap = parseGpioList(result.return || "");
+    const raw = result.return || result.output || "";
+    const gpioMap = parseGpioList(raw);
     for (const pinNum of pins) {
       const level = gpioMap.has(pinNum) ? gpioMap.get(pinNum) : null;
       const key = `${machine}:P${port}${pinNum}`;
@@ -660,6 +684,7 @@ async function connectToRobotServer() {
     const version = [ping.output, ping.return].filter(Boolean).join(" ").trim();
     emitLog("system", `Connected to Renode robot server. ${version}`);
     emitLog("system", `Loading script: ${simScriptPosix}`);
+    await setDaisyElfVariable();
     const includeResult = await executeRenodeScript(simScriptPosix);
     if (includeResult.status === "FAIL") {
       emitLog("system", `Include warning: ${includeResult.error || "unknown include failure"}`);
@@ -680,6 +705,7 @@ async function connectToRobotServer() {
       }
       // 15 iterations × 50ms = 750ms coverage, enough for firmware's k_msleep(500) startup.
       await drainUartLines(machine, 15, "0.05");
+
       startUartDrainLoop(machine);
       if (activeHubPeripheral) {
         await startHubStreaming(machine);
@@ -761,6 +787,7 @@ async function handleLoadScript(scenario) {
   const newScriptPosix = newScript.replace(/\\/g, "/");
   emitLog("system", `Loading script: ${newScriptPosix}`);
 
+  await setDaisyElfVariable();
   const result = await executeRenodeScript(newScriptPosix);
   emitLog("system", `ExecuteScript result: ${result.status}${result.error ? " — " + result.error : ""}`);
   if (result.status === "FAIL") {
@@ -781,7 +808,9 @@ async function handleLoadScript(scenario) {
       const startRes = await callXmlRpc("ExecuteCommand", ["start"]).catch(e => ({ status: "FAIL", error: e.message }));
       emitLog("system", `Daisy simulation start: ${startRes.status}${startRes.error ? " — " + startRes.error : ""}`, machine);
     }
-    await drainUartLines(machine, 15, "0.05");
+    const drainTimeout = activeScenario === "daisy" ? "0.0005" : "0.05";
+    const drainLines  = activeScenario === "daisy" ? 2 : 15;
+    await drainUartLines(machine, drainLines, drainTimeout);
     startUartDrainLoop(machine);
     if (activeHubPeripheral) {
       await startHubStreaming(machine);
@@ -1061,6 +1090,10 @@ wss.on("connection", (ws) => {
       }
 
       if (msg.type === "load_script" && typeof msg.scenario === "string") {
+        // Optional: msg.elf overrides the ELF loaded by the daisy scenario
+        if (typeof msg.elf === "string" && msg.elf) {
+          _daisyElfOverride = msg.elf;
+        }
         handleLoadScript(msg.scenario).catch((err) =>
           emitLog("system", `Load script error: ${err.message}`)
         );

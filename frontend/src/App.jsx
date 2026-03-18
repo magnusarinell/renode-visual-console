@@ -5,7 +5,7 @@ import {
   BOARDS, ALL_TRACKED_PINS, MAX_LOG_LINES,
   buildPinMap, firmwareOutputsFor, isGpioPin,
 } from "./constants";
-import { DAISY_MACHINE, DAISY_INPUT_PIN, DAISY_OUTPUT_PIN } from "./daisy-constants";
+import { DAISY_MACHINE, DAISY_INPUT_PIN, DAISY_OUTPUT_PIN, DAISY_LED_PIN } from "./daisy-constants";
 import { useWebSocket } from "./hooks/useWebSocket";
 import { BoardCard } from "./components/BoardCard";
 import { DaisySeedBoard } from "./components/daisy/DaisySeedBoard";
@@ -21,6 +21,7 @@ export default function App() {
   const [logs, setLogs]                       = useState([]);
   const [outputLevel, setOutputLevel]         = useState(null);  // daisy PA15
   const [inputLevel, setInputLevel]           = useState(null);  // daisy PB3
+  const [ledLevel, setLedLevel]               = useState(null);  // daisy PC7
   const [pinStatesByBoard, setPinStatesByBoard] = useState(() =>
     Object.fromEntries(BOARDS.map((b) => [b.id, buildPinMap()]))
   );
@@ -47,11 +48,13 @@ export default function App() {
       // Reset pin levels on scenario switch
       setOutputLevel(null);
       setInputLevel(null);
+      setLedLevel(null);
     },
     onPinState: (machine, pin, level) => {
       if (machine === DAISY_MACHINE) {
         if (pin === DAISY_OUTPUT_PIN) setOutputLevel(level);
         if (pin === DAISY_INPUT_PIN)  setInputLevel(level);
+        if (pin === DAISY_LED_PIN)    setLedLevel(level);
         return;
       }
       setPinStatesByBoard((prev) => {
@@ -253,6 +256,7 @@ export default function App() {
               <DaisySeedBoard
                 outputLevel={outputLevel}
                 inputLevel={inputLevel}
+                ledLevel={ledLevel}
                 onButtonDown={handleButtonDown}
                 onButtonUp={handleButtonUp}
                 logs={daisyUartLogs}

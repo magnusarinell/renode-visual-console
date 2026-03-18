@@ -6,6 +6,7 @@
     "deps": "npm install && npm --prefix backend install && npm --prefix frontend install",
     "build": "bash scripts/build_disco.sh",
     "build:daisy": "bash scripts/build_daisy.sh",
+    "setup:daisy": "bash scripts/setup_libdaisy.sh",
     "start:renode": "renode --robot-server-port 55555 --disable-gui --hide-monitor --hide-log --plain",
     "start:backend": "cross-env RENODE_ROBOT_PORT=55555 npm --prefix backend run start",
     "start:backend:daisy": "cross-env RENODE_ROBOT_PORT=55555 RENODE_SCRIPT=zephyr/renode/daisy_seed.resc RENODE_MACHINES=daisy_0 RENODE_UART=sysbus.usart1 npm --prefix backend run start",

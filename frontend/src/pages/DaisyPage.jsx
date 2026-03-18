@@ -4,7 +4,7 @@ import "../App.css";
 import "../components/daisy/Daisy.css";
 import { useWebSocket } from "../hooks/useWebSocket";
 import { DaisySeedBoard } from "../components/daisy/DaisySeedBoard";
-import { DAISY_MACHINE, DAISY_INPUT_PIN, DAISY_OUTPUT_PIN } from "../daisy-constants";
+import { DAISY_MACHINE, DAISY_INPUT_PIN, DAISY_OUTPUT_PIN, DAISY_LED_PIN } from "../daisy-constants";
 
 let _logSeq = 0;
 const MAX_LOGS = 400;
@@ -13,6 +13,7 @@ export default function DaisyPage() {
   const [simRunning, setSimRunning]   = useState(false);
   const [outputLevel, setOutputLevel] = useState(null);  // PA15
   const [inputLevel, setInputLevel]   = useState(null);  // PB3 physical level
+  const [ledLevel, setLedLevel]       = useState(null);  // PC7 onboard LED
   const [logs, setLogs]               = useState([]);
 
   const { socketState, send } = useWebSocket({
@@ -21,6 +22,7 @@ export default function DaisyPage() {
       if (machine !== DAISY_MACHINE) return;
       if (pin === DAISY_OUTPUT_PIN) setOutputLevel(level);
       if (pin === DAISY_INPUT_PIN)  setInputLevel(level);
+      if (pin === DAISY_LED_PIN)    setLedLevel(level);
     },
     onLog: (stream, text, machine) => {
       if (machine && machine !== DAISY_MACHINE) return;
@@ -85,6 +87,7 @@ export default function DaisyPage() {
         <DaisySeedBoard
           outputLevel={outputLevel}
           inputLevel={inputLevel}
+          ledLevel={ledLevel}
           onButtonDown={handleButtonDown}
           onButtonUp={handleButtonUp}
         />

@@ -178,6 +178,12 @@
   box-shadow: 0 0 8px rgba(34,197,94,0.7);
 }
 
+.daisy-led-dot.red.high {
+  background: #ef4444;
+  border-color: #b91c1c;
+  box-shadow: 0 0 8px rgba(239,68,68,0.75);
+}
+
 .daisy-led-dot.low {
   background: #1a3a1a;
   border-color: #2e4a2e;

@@ -1,10 +1,40 @@
 path add $ORIGIN
+
+# ── Configurable ELF path ─────────────────────────────────────────
+# Override from backend / CLI:  $elf=@/path/to/your.elf
+# Default: Blink example from the local DaisyExamples clone.
+$elf ?= $ORIGIN/../../libdaisy-examples/seed/Blink/build/Blink.elf
+
 mach create "daisy_0"
 machine LoadPlatformDescription @daisy_seed.repl
-sysbus LoadELF $ORIGIN/../build-daisy/zephyr/zephyr.elf
 
-# PB3 (sw0) has a pull-up — initialise HIGH so firmware starts in "not pressed" state
-sysbus.gpioPortB OnGPIO 3 true
+# ── Replace built-in peripheral models with Python stubs ─────────
+# The base stm32h743.repl declares rcc, flash, syscfg, and qspi but
+# those models don't set ready-flags that libDaisy polls.
+# Remove them and register Python peripherals that force the bits.
+sysbus Unregister rcc
+sysbus Unregister flashController
+sysbus Unregister syscfg
+sysbus Unregister qspi
+
+# Load Python stubs from daisy_stubs.repl (inline script: blocks avoid
+# $ORIGIN expansion issues that affect filename: inside LoadPlatformDescriptionFromString).
+machine LoadPlatformDescription @daisy_stubs.repl
+
+sysbus LoadELF $elf
+
+# ── Boot setup ───────────────────────────────────────────────────
+# Default (BOOT_NONE): ELF is flash-linked to 0x08000000.
+# sysbus LoadELF already loaded the vector table into flash memory.
+# Set VTOR to the flash base so the CPU finds SP and reset-handler.
+cpu VectorTableOffset 0x08000000
+
+# If $elf is a BOOT_SRAM image (linked to 0x24000000), override
+# VTOR and set SP/PC manually by commenting out the line above and
+# uncommenting the three lines below:
+#cpu VectorTableOffset 0x24000000
+#cpu SetRegisterUnsafe 13 `sysbus ReadDoubleWord 0x24000000`
+#cpu PC `sysbus ReadDoubleWord 0x24000004`
 
 emulation SetGlobalQuantum "0.000025"
 emulation SetGlobalSerialExecution True

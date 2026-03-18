@@ -44,6 +44,7 @@ function DaisyPinButton({ pin, level, selectedPin, onPinSelect, side }) {
 export function DaisySeedBoard({
   outputLevel,
   inputLevel,
+  ledLevel,
   onButtonDown,
   onButtonUp,
   logs = [],
@@ -112,6 +113,18 @@ export function DaisySeedBoard({
                   <div className="daisy-codec">
                     <span>WM8731</span>
                     <span className="daisy-mcu-sub">Audio Codec</span>
+                  </div>
+                </div>
+
+                {/* PC7 onboard LED indicator (Blink example) */}
+                <div className="daisy-indicator-row">
+                  <div
+                    className={`daisy-led-dot red ${levelClass(ledLevel)}`}
+                    title={`PC7 (onboard LED): ${ledLevel === true ? "HIGH" : ledLevel === false ? "LOW" : "FLOAT"}`}
+                  />
+                  <div className="daisy-ind-labels">
+                    <span className="daisy-ind-pin">PC7</span>
+                    <span className="daisy-ind-desc">led · onboard</span>
                   </div>
                 </div>
 

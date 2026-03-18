@@ -23,6 +23,7 @@ target
 # Zephyr workspace/build artifacts
 /zephyr/.west/
 /zephyr/build/
+/zephyr/build-daisy/
 /zephyr/app/build/
 /zephyr/zephyr/
 /zephyr/modules/
@@ -34,3 +35,7 @@ target
 /frontend/dist/
 /backend/node_modules/
 /node_modules/
+
+# libDaisy toolchain wrappers and examples
+/.toolchain-wrappers/
+/libdaisy-examples/
