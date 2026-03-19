@@ -1,5 +1,10 @@
 # Copilot Instructions – STM32F4 Disco Zephyr + Renode Project
 
+## Language
+- **Communication**: Always think and respond to the user in **Swedish**.
+- **Code & comments**: All code, comments, commit messages, variable names and documentation must be in **English**.
+
+
 ## Project Context
 - Firmware: **C** (Zephyr RTOS), targeting **STM32F4 Discovery Kit** (`stm32f4_disco`, Cortex-M4)
 - Simulation: **Renode** dual-board setup — two `stm32f4_disco` instances connected via UART Hub

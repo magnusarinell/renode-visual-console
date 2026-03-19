@@ -16,7 +16,7 @@ let _logSeq = 0;
 export default function App() {
   const [view, setView]                       = useState("discovery");
   const [activeScript, setActiveScript]       = useState("discovery"); // which resc is loaded
-  const [selectedDaisyPin, setSelectedDaisyPin] = useState("D42");     // PB3 — writable by default
+  const [selectedDaisyPin, setSelectedDaisyPin] = useState(DAISY_INPUT_PIN);
   const [simRunning, setSimRunning]           = useState(false);
   const [logs, setLogs]                       = useState([]);
   const [outputLevel, setOutputLevel]         = useState(null);  // daisy PA15

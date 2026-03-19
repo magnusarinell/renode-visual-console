@@ -1,48 +1,59 @@
 import { useRef } from "react";
 import "./Daisy.css";
-
-const LEFT_PINS  = ["3V3","D1","D2","D3","D4","D5","D6","D7","D8","D9","D10","D11","D12","D13","D14","D15","D16","D17","D18","D19","D20","D21","D22","D23","D24","D25","D26","D27","D28","BOOT"];
-const RIGHT_PINS = ["AGND","D30","D31","D32","D33","D34","D35","D36","D37","D38","D39","D40","D41","D42","D43","D44","D45","D46","D47","D48","D49","D50","D51","D52","D53","D54","D55","D56","D57","GND"];
-
-// Known firmware-mapped pins: D-number → {STM32 label, role, badge text}
-const KNOWN_PINS = {
-  D33: { stmPin: "PA9",  role: "uart",   tag: "TX"  },
-  D34: { stmPin: "PA10", role: "uart",   tag: "RX"  },
-  D42: { stmPin: "PB3",  role: "input",  tag: "IN"  },
-  D45: { stmPin: "PA15", role: "output", tag: "OUT" },
-};
-
-const POWER_PINS = new Set(["3V3", "GND", "AGND", "BOOT"]);
+import {
+  DAISY_INPUT_PIN,
+  DAISY_PIN_LEGEND,
+  DAISY_PINOUT_LEFT,
+  DAISY_PINOUT_RIGHT,
+  DAISY_SIGNAL_CARDS,
+} from "../../daisy-constants";
 
 function levelClass(level) {
   return level === true ? "high" : level === false ? "low" : "floating";
 }
 
-function DaisyPinButton({ pin, level, selectedPin, onPinSelect, side }) {
-  const known   = KNOWN_PINS[pin];
-  const isPower = POWER_PINS.has(pin);
-  const isGpio  = !!known;
-  const lc      = isGpio ? levelClass(level) : "";
+function DaisyPinCtrlTab({ selectedSignal, selectedPinWritable, onInjectLevel, onPulsePin }) {
+  const canDriveSignal =
+    selectedPinWritable &&
+    typeof onInjectLevel === "function" &&
+    typeof onPulsePin === "function";
   return (
-    <div className="pin-row">
-      <button
-        className={`pin-btn daisy-pin-btn${selectedPin === pin ? " active" : ""} ${lc}${!isGpio && !isPower ? " nc" : ""}`}
-        onClick={() => isGpio && onPinSelect(pin)}
-        disabled={!isGpio}
-        title={known ? `${pin} / ${known.stmPin} (${known.role})` : pin}
-      >
-        <span className={`pin-inner daisy-pin-inner daisy-pin-${side}`}>
-          <span className="pin-dot" />
-          <span className="pin-name">{known ? known.stmPin : pin}</span>
-          {known && <span className={`pin-role ${known.role}`}>{known.tag}</span>}
-        </span>
-      </button>
+    <div className="pin-ctrl-tab daisy-pin-ctrl-tab">
+      <div className="pin-ctrl-label">{selectedSignal.alias}</div>
+      <div className="pin-ctrl-label daisy-ctrl-stm">{selectedSignal.stmPin}</div>
+      <div className="pin-ctrl-actions">
+        <button
+          className="pin-inject-button"
+          onClick={() => onInjectLevel?.(selectedSignal.stmPin, true)}
+          disabled={!canDriveSignal}
+          title={`Set ${selectedSignal.stmPin} HIGH`}
+          type="button"
+        >H</button>
+        <button
+          className="pin-inject-button"
+          onClick={() => onInjectLevel?.(selectedSignal.stmPin, false)}
+          disabled={!canDriveSignal}
+          title={`Set ${selectedSignal.stmPin} LOW`}
+          type="button"
+        >L</button>
+        <button
+          className="pin-inject-button pulse"
+          onClick={() => onPulsePin?.(selectedSignal.stmPin)}
+          disabled={!canDriveSignal}
+          title={`Pulse ${selectedSignal.stmPin}`}
+          type="button"
+        >P</button>
+      </div>
     </div>
   );
 }
 
+// Pair: right-side pins 1-20 with left-side pins 21-40, interleaved so grid row N = (N, N+20)
+const PINS_A = DAISY_PINOUT_RIGHT.slice().sort((a, b) => a.number - b.number); // 1-20
+const PINS_B = DAISY_PINOUT_LEFT.slice().sort((a, b) => a.number - b.number);  // 21-40
+const PAIRED_PINS = PINS_A.flatMap((p, i) => [p, PINS_B[i]]);
+
 export function DaisySeedBoard({
-  outputLevel,
   inputLevel,
   ledLevel,
   onButtonDown,
@@ -50,7 +61,6 @@ export function DaisySeedBoard({
   logs = [],
   onClearLogs,
   selectedPin,
-  onPinSelect,
   onInjectLevel,
   onPulsePin,
 }) {
@@ -66,120 +76,111 @@ export function DaisySeedBoard({
     onButtonUp(e);
   }
 
-  function getLevelForPin(dPin) {
-    if (dPin === "D45") return outputLevel;  // PA15
-    if (dPin === "D42") return inputLevel;   // PB3
-    return null;
-  }
-
   const btnPressed      = inputLevel === false;
-  const selectedKnown   = selectedPin ? KNOWN_PINS[selectedPin] : null;
-  const selectedPinWritable = selectedKnown && selectedKnown.role !== "output";
+  const activeSignalPin = selectedPin ?? DAISY_INPUT_PIN;
+  const selectedSignal  = DAISY_SIGNAL_CARDS.find((s) => s.stmPin === activeSignalPin)
+    ?? DAISY_SIGNAL_CARDS[0];
+  const selectedPinWritable = selectedSignal.role === "input";
 
   return (
-    <div className="board-with-pin-ctrl daisy-board-with-ctrl">
-      <div className="board-main-column">
+    <div className="daisy-outer-wrap">
+      <div className="board-with-pin-ctrl daisy-board-with-ctrl">
+        <div className="board-main-column">
 
-        {/* PCB */}
-        <div className="daisy-pcb-panel">
-          <div className="daisy-pcb">
-            <div className="daisy-silk-top">
-              <span className="daisy-brand">ELECTROSMITH</span>
-              <span className="daisy-model">DAISY SEED</span>
-            </div>
-
-            <div className="daisy-body">
-              {/* Left pins */}
-              <div className="daisy-pins left">
-                {LEFT_PINS.map((pin) => (
-                  <DaisyPinButton
-                    key={`L-${pin}`}
-                    pin={pin}
-                    level={getLevelForPin(pin)}
-                    selectedPin={selectedPin}
-                    onPinSelect={onPinSelect}
-                    side="left"
-                  />
-                ))}
-              </div>
-
-              {/* Centre */}
-              <div className="daisy-center">
-                <div className="daisy-mcu-block">
-                  <div className="daisy-mcu">
-                    <span className="daisy-mcu-name">STM32H750</span>
-                    <span className="daisy-mcu-sub">Cortex-M7 · 480 MHz</span>
-                  </div>
-                  <div className="daisy-codec">
-                    <span>WM8731</span>
-                    <span className="daisy-mcu-sub">Audio Codec</span>
-                  </div>
-                </div>
-
-                {/* PC7 onboard LED indicator (Blink example) */}
-                <div className="daisy-indicator-row">
-                  <div
-                    className={`daisy-led-dot red ${levelClass(ledLevel)}`}
-                    title={`PC7 (onboard LED): ${ledLevel === true ? "HIGH" : ledLevel === false ? "LOW" : "FLOAT"}`}
-                  />
-                  <div className="daisy-ind-labels">
-                    <span className="daisy-ind-pin">PC7</span>
-                    <span className="daisy-ind-desc">led · onboard</span>
-                  </div>
-                </div>
-
-                {/* PA15 LED indicator */}
-                <div className="daisy-indicator-row">
-                  <div
-                    className={`daisy-led-dot ${levelClass(outputLevel)}`}
-                    title={`PA15 (led0): ${outputLevel === true ? "HIGH" : outputLevel === false ? "LOW" : "FLOAT"}`}
-                  />
-                  <div className="daisy-ind-labels">
-                    <span className="daisy-ind-pin">PA15</span>
-                    <span className="daisy-ind-desc">led0 · output</span>
-                  </div>
-                </div>
-
-                {/* USER button (PB3) */}
-                <div className="board-button-wrap">
-                  <span className="board-button-label">USER</span>
+        {/* ── Yellow PCB board shell — single visual board ── */}
+        <div className="daisy-board-shell">
+          <div className="daisy-pin-stack">
+            {/* Left pin header: hole on outer (left) edge, label toward board */}
+            <div className="header left">
+              {DAISY_PINOUT_LEFT.map((row) => (
+                <div className="pin-row" key={`left-${row.number}`}>
                   <button
-                    className={`board-button${btnPressed ? " active" : ""}`}
-                    onPointerDown={handlePointerDown}
-                    onPointerUp={handlePointerUp}
-                    onPointerLeave={handlePointerUp}
-                    title="USER button — PB3 (GPIO_ACTIVE_LOW)"
-                  />
-                  <span className="board-button-label">PB3 · sw0</span>
+                    className="pin pin-btn floating nc daisy-hw-pin"
+                    disabled
+                    title={`Pin ${row.number}: ${row.pinLabel}`}
+                    type="button"
+                  >
+                    <span className="daisy-pin-inner-left">
+                      <span className="daisy-pin-hole">{row.number}</span>
+                      <span className="pin-name">{row.pinLabel}</span>
+                    </span>
+                  </button>
                 </div>
+              ))}
+            </div>
+
+            {/* Center board body: chips + signal pills + USER button + USB */}
+            <div className="daisy-board-body">
+              {/* Power chip — no text */}
+              <div className="daisy-chip daisy-chip-top" aria-hidden="true" />
+
+              <span className="daisy-chip-label">ELECTROSMITH</span>
+
+              {/* Main MCU chip */}
+              <div className="daisy-chip daisy-chip-main">
+                <span className="daisy-chip-title">STM32H750</span>
+                <span className="daisy-chip-sub">Cortex-M7</span>
               </div>
 
-              {/* Right pins */}
-              <div className="daisy-pins right">
-                {RIGHT_PINS.map((pin) => (
-                  <DaisyPinButton
-                    key={`R-${pin}`}
-                    pin={pin}
-                    level={getLevelForPin(pin)}
-                    selectedPin={selectedPin}
-                    onPinSelect={onPinSelect}
-                    side="right"
-                  />
-                ))}
+              <span className="daisy-chip-label">DAISY SEED</span>
+
+              {/* Audio + SDRAM chip — no text */}
+              <div className="daisy-chip daisy-chip-bottom" aria-hidden="true" />
+
+              {/* USER button */}
+              <div className="daisy-user-control">
+                <span className="daisy-user-label">USER</span>
+                <button
+                  className={`daisy-user-button${btnPressed ? " active" : ""}`}
+                  onPointerDown={handlePointerDown}
+                  onPointerUp={handlePointerUp}
+                  onPointerLeave={handlePointerUp}
+                  title="USER button - PB3 (GPIO_ACTIVE_LOW)"
+                  type="button"
+                />
+                <span className="daisy-user-meta">PB3</span>
+              </div>
+
+              {/* Onboard LED + USB connector at board bottom */}
+              <div className="daisy-bottom-row">
+                <div
+                  className={`daisy-onboard-led ${levelClass(ledLevel)}`}
+                  title={`PC7 onboard LED · ${ledLevel === true ? "ON" : ledLevel === false ? "OFF" : "?"}`}
+                  aria-label="Onboard LED PC7"
+                />
+                <div className="daisy-usb-port" aria-hidden="true" />
               </div>
             </div>
 
-            <div className="daisy-silk-bottom">STM32H750IBK6 · 64 MB QSPI · 8 MB SDRAM</div>
+            {/* Right pin header: label toward board, hole on outer (right) edge */}
+            <div className="header right">
+              {DAISY_PINOUT_RIGHT.map((row) => (
+                <div className="pin-row" key={`right-${row.number}`}>
+                  <button
+                    className="pin pin-btn floating nc daisy-hw-pin"
+                    disabled
+                    title={`Pin ${row.number}: ${row.pinLabel}`}
+                    type="button"
+                  >
+                    <span className="daisy-pin-inner-right">
+                      <span className="pin-name">{row.pinLabel}</span>
+                      <span className="daisy-pin-hole">{row.number}</span>
+                    </span>
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>{/* /daisy-pcb-panel */}
 
-        {/* COM — USART1 log */}
+        </div>
+
+        {/* ── COM card ── */}
         <div className="uart-card daisy-com-card">
           <header>
             <div className="uart-card-title">COM</div>
             <div className="uart-filter-bar">
               <span className="daisy-com-label">USART1</span>
-              <button className="uart-filter-btn clear" onClick={onClearLogs}>Clear</button>
+              <button className="uart-filter-btn clear" onClick={onClearLogs} type="button">Clear</button>
             </div>
           </header>
           <div className="log-lines">
@@ -197,36 +198,42 @@ export function DaisySeedBoard({
           </div>
         </div>
 
-      </div>{/* /board-main-column */}
-
-      {/* Pin control tab */}
-      <div className="pin-ctrl-tab daisy-pin-ctrl-tab">
-        <div className="pin-ctrl-label">{selectedPin ?? "—"}</div>
-        {selectedKnown && (
-          <div className="pin-ctrl-label daisy-ctrl-stm">{selectedKnown.stmPin}</div>
-        )}
-        <div className="pin-ctrl-actions">
-          <button
-            className="pin-inject-button"
-            onClick={() => selectedKnown && onInjectLevel(selectedKnown.stmPin, true)}
-            disabled={!selectedPinWritable}
-            title={selectedKnown ? `Set ${selectedKnown.stmPin} HIGH` : "Select an input pin"}
-          >H</button>
-          <button
-            className="pin-inject-button"
-            onClick={() => selectedKnown && onInjectLevel(selectedKnown.stmPin, false)}
-            disabled={!selectedPinWritable}
-            title={selectedKnown ? `Set ${selectedKnown.stmPin} LOW` : "Select an input pin"}
-          >L</button>
-          <button
-            className="pin-inject-button pulse"
-            onClick={() => selectedKnown && onPulsePin(selectedKnown.stmPin)}
-            disabled={!selectedPinWritable}
-            title={selectedKnown ? `Pulse ${selectedKnown.stmPin}` : "Select an input pin"}
-          >P</button>
-        </div>
       </div>
 
+        <DaisyPinCtrlTab
+          selectedSignal={selectedSignal}
+          selectedPinWritable={selectedPinWritable}
+          onInjectLevel={onInjectLevel}
+          onPulsePin={onPulsePin}
+        />
+      </div>
+
+      <div className="daisy-info-column">
+        {/* ── Pin function list — compact two-column grid to the right of the board ── */}
+        <div className="daisy-badge-panel">
+          <div className="daisy-pinlist">
+            {PAIRED_PINS.map((row) => (
+              <div key={row.number} className="daisy-pinlist-row">
+                <span className="daisy-pinlist-num">{row.number}</span>
+                <span className="daisy-pinlist-label">{row.pinLabel}</span>
+                <span className="daisy-pinlist-badges">
+                  {row.badges.map((b) => (
+                    <span key={b.label} className={`daisy-row-badge ${b.tone}`}>{b.label}</span>
+                  ))}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="daisy-legend-panel">
+          {DAISY_PIN_LEGEND.map((item) => (
+            <span key={item.tone} className={`daisy-row-badge ${item.tone}`}>
+              {item.label}
+            </span>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
