@@ -4,20 +4,20 @@
 
 rcc_stub: Python.PythonPeripheral @ sysbus 0x58024400
     size: 0x400
-    filename: "C:/git/renode-visual-console/zephyr/renode/stm32h7_rcc_stub.py"
+    filename: "C:/git/renode-visual-console/renode/daisy/stm32h7_rcc_stub.py"
 
 pwr_stub: Python.PythonPeripheral @ sysbus 0x58024800
     size: 0x400
-    filename: "C:/git/renode-visual-console/zephyr/renode/stm32h7_pwr_stub.py"
+    filename: "C:/git/renode-visual-console/renode/daisy/stm32h7_pwr_stub.py"
 
 flash_stub: Python.PythonPeripheral @ sysbus 0x52002000
     size: 0x400
-    filename: "C:/git/renode-visual-console/zephyr/renode/stm32h7_flash_stub.py"
+    filename: "C:/git/renode-visual-console/renode/daisy/stm32h7_flash_stub.py"
 
 syscfg_stub: Python.PythonPeripheral @ sysbus 0x58000400
     size: 0x400
-    filename: "C:/git/renode-visual-console/zephyr/renode/stm32h7_syscfg_stub.py"
+    filename: "C:/git/renode-visual-console/renode/daisy/stm32h7_syscfg_stub.py"
 
 qspi_stub: Python.PythonPeripheral @ sysbus 0x52005000
     size: 0x400
-    filename: "C:/git/renode-visual-console/zephyr/renode/stm32h7_qspi_stub.py"
+    filename: "C:/git/renode-visual-console/renode/daisy/stm32h7_qspi_stub.py"

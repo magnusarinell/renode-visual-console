@@ -8,7 +8,7 @@ description: 'Guide for running and troubleshooting the Renode dual-board simula
 ## When to Use
 - Starting the full simulation stack (`npm start`)
 - Running Renode standalone (`bash dev.sh renode`)
-- Modifying `zephyr/renode/discovery_dual.resc`
+- Modifying `renode/discovery/discovery_dual.resc`
 - Debugging GPIO, UART, or inter-board communication in Renode
 - Sending manual XML-RPC / robot framework commands to Renode
 
@@ -32,7 +32,7 @@ bash dev.sh renode
 # Builds firmware, then starts Renode with discovery_dual.resc
 ```
 
-## Simulation Script: `zephyr/renode/discovery_dual.resc`
+## Simulation Script: `renode/discovery/discovery_dual.resc`
 
 The script:
 1. Creates a **UART Hub** named `uartHub` for inter-board communication
@@ -75,7 +75,7 @@ board_0 sysbus.adc1 VoltageOnChannel 1 1.65  # PA1 = 1.65V
 | `RENODE_ROBOT_PORT` | `55555` | Robot server port |
 | `RENODE_ROBOT_HOST` | `localhost` | Robot server host |
 | `RENODE_MACHINES` | `board_0,board_1` | Machine names in Renode |
-| `RENODE_SCRIPT` | `zephyr/renode/discovery_dual.resc` | Renode script to load |
+| `RENODE_SCRIPT` | `renode/discovery/discovery_dual.resc` | Renode script to load |
 | `AUTO_START_RENODE` | `true` | Auto-start on backend launch |
 
 ## Common Issues
@@ -84,7 +84,7 @@ board_0 sysbus.adc1 VoltageOnChannel 1 1.65  # PA1 = 1.65V
 Use `--disable-gui --hide-monitor --hide-log --plain` flags (already set in `npm start:renode`).
 
 ### ELF not found error in Renode
-Run `npm run build` first. The `.resc` file references `$ORIGIN/../build/zephyr/zephyr.elf` (relative to the `.resc` file location in `zephyr/renode/`).
+Run `npm run build` first. The `.resc` file references `$ORIGIN/../../zephyr/build/zephyr/zephyr.elf` (relative to the `.resc` file location in `renode/discovery/`).
 
 ### UART Hub not receiving data
 Verify both boards have `usart2` connected: `connector Connect sysbus.usart2 uartHub` must appear for each machine in the `.resc` file.

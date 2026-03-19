@@ -59,7 +59,7 @@ All messages are JSON objects with a `type` field.
 | `RENODE_ROBOT_PORT` | `55555` | Renode robot server port |
 | `RENODE_ROBOT_HOST` | `localhost` | Renode robot server host |
 | `RENODE_MACHINES` | `board_0,board_1` | Comma-separated machine names |
-| `RENODE_SCRIPT` | `zephyr/renode/discovery_dual.resc` | Path to Renode script |
+| `RENODE_SCRIPT` | `renode/discovery/discovery_dual.resc` | Path to Renode script |
 | `AUTO_START_RENODE` | `true` | Auto-start simulation on backend launch |
 
 ## Frontend Component Structure (`frontend/src/`)

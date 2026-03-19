@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SIM_RESC_UNIX="$ROOT_DIR/zephyr/renode/discovery_dual.resc"
+SIM_RESC_UNIX="$ROOT_DIR/renode/discovery/discovery_dual.resc"
 
 bash "$ROOT_DIR/scripts/build_disco.sh"
 

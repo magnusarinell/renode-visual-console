@@ -167,7 +167,7 @@ Environment variables for `backend/index.mjs`:
 | `RENODE_ROBOT_PORT` | `55555` | Renode robot server port |
 | `RENODE_ROBOT_HOST` | `localhost` | Renode robot server host |
 | `RENODE_MACHINES` | `board_0,board_1` | Comma-separated machine names |
-| `RENODE_SCRIPT` | `zephyr/renode/discovery_dual.resc` | Renode script path |
+| `RENODE_SCRIPT` | `renode/discovery/discovery_dual.resc` | Renode script path |
 | `AUTO_START_RENODE` | `true` | Start simulation on backend launch |
 
 ---
