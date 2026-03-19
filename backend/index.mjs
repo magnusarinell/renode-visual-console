@@ -87,16 +87,16 @@ async function pollOledFrame() {
   const machine = activeMachines[0];
   if (!machine) return;
   try {
-    // Read 1024 bytes from SRAM4 via a Renode monitor Python one-liner.
-    // The stub writes each completed framebuffer there after 8 pages are received.
+    // Read framebuffer from sys.modules['renode_oled'].frame set by ssd1306_spi_stub.py
     const cmd =
-      "python import base64; d=bytearray(); " +
-      "[d.extend([(machine.SystemBus.ReadDoubleWord(0x38000000+i*4)>>s)&0xFF for s in (0,8,16,24)]) for i in range(256)]; " +
-      "print(base64.b64encode(bytes(d)).decode())";
+      "python import sys as _s,base64 as _b;" +
+      "_m=_s.modules.get('renode_oled');" +
+      "_fb=_m.frame if _m and _m.frame else None;" +
+      "_r=_b.b64encode(bytearray(_fb)) if _fb else None;" +
+      "print(_r if isinstance(_r,str) else (_r.decode() if _r else ''))";
     const result = await executeRenodeCommandSilent(cmd, machine);
     const raw = (result.return || result.output || "").trim();
-    // Expect a ~1368-char base64 string for 1024 bytes
-    if (raw.length >= 1000 && /^[A-Za-z0-9+/]+=*$/.test(raw)) {
+    if (raw.length >= 1000) {
       emit({ type: "oled_frame", machine, data: raw, ts: Date.now() });
     }
   } catch { /* ignore transient errors */ }
@@ -114,6 +114,30 @@ function stopOledPollLoop() {
     clearInterval(_oledPollTimer);
     _oledPollTimer = null;
   }
+}
+
+// ─── PC value poll loop (Daisy scenario only, 2 s) ─────────────────────────
+let _pcPollTimer = null;
+
+async function pollPcValue() {
+  if (!renodeReady || !renodeRunning || activeScenario !== "daisy") return;
+  const machine = activeMachines[0];
+  if (!machine) return;
+  try {
+    const result = await executeRenodeCommandSilent("cpu PC", machine);
+    const raw = (result.return || result.output || "").trim();
+    const m = raw.match(/0x[0-9a-fA-F]+/);
+    if (m) emit({ type: "pc_value", machine, pc: m[0], ts: Date.now() });
+  } catch { /* ignore */ }
+}
+
+function startPcPollLoop() {
+  if (_pcPollTimer || activeScenario !== "daisy") return;
+  _pcPollTimer = setInterval(() => { pollPcValue().catch(() => {}); }, 2000);
+}
+
+function stopPcPollLoop() {
+  if (_pcPollTimer) { clearInterval(_pcPollTimer); _pcPollTimer = null; }
 }
 
 // Cache of symbol address from map file (address is same for all machines since same ELF)
@@ -776,6 +800,7 @@ async function connectToRobotServer() {
       startGpioPushLoop(machine);
     }
     if (activeScenario === "daisy") startOledPollLoop();
+    if (activeScenario === "daisy") startPcPollLoop();
   } catch (err) {
     renodeRunning = false;
     renodeReady = false;
@@ -787,6 +812,7 @@ async function connectToRobotServer() {
     stopHubDrainLoops();
     stopGpioPushLoops();
     stopOledPollLoop();
+    stopPcPollLoop();
     emit({ type: "status", running: false, ts: Date.now() });
     emitLog("system", `Cannot connect to Renode: ${err.message || "no response"} — retrying in 5s…`);
     _renodeRetryTimer = setTimeout(() => {
@@ -814,6 +840,7 @@ async function handleLoadScript(scenario) {
   stopHubDrainLoops();
   stopGpioPushLoops();
   stopOledPollLoop();
+  stopPcPollLoop();
   uartTesterReadyByMachine.clear();
   uartTesterIdByMachine.clear();
   hubTesterReadyByMachine.clear();
@@ -883,6 +910,7 @@ async function handleLoadScript(scenario) {
     startGpioPushLoop(machine);
   }
   if (activeScenario === "daisy") startOledPollLoop();
+  if (activeScenario === "daisy") startPcPollLoop();
 }
 
 const clients = new Set();

@@ -26,6 +26,7 @@ export default function App() {
   const [oledFrame, setOledFrame]             = useState(null);
   const [elfFiles, setElfFiles]               = useState([]);
   const [selectedElf, setSelectedElf]         = useState("");
+  const [pcValue, setPcValue]                 = useState(null);
   const [pinStatesByBoard, setPinStatesByBoard] = useState(() =>
     Object.fromEntries(BOARDS.map((b) => [b.id, buildPinMap()]))
   );
@@ -51,12 +52,14 @@ export default function App() {
       if (Array.isArray(msg.elf_list)) setElfFiles(msg.elf_list);
     },
     onOledFrame: (_machine, data) => setOledFrame(data),
+    onPcValue: (_machine, pc) => setPcValue(pc),
     onScriptLoaded: (scenario) => {
       setActiveScript(scenario);
       // Reset pin levels on scenario switch
       setOutputLevel(null);
       setInputLevel(null);
       setLedLevel(null);
+      setPcValue(null);
       if (scenario !== "daisy") setOledFrame(null);
     },
     onPinState: (machine, pin, level) => {
@@ -170,14 +173,16 @@ export default function App() {
     // No-op: pulse is self-contained (LOW + sim advance + HIGH)
   }
 
-  function handleLoadScript(target) {
-    send({ type: "load_script", scenario: target });
-  }
-
-  function handleSelectElf(elf) {
-    setSelectedElf(elf);
-    setOledFrame(null);
-    send({ type: "select_binary", elf });
+  function handleActivate() {
+    if (view === "daisy") {
+      if (selectedElf) {
+        send({ type: "select_binary", elf: selectedElf });
+      } else {
+        send({ type: "load_script", scenario: "daisy" });
+      }
+    } else {
+      send({ type: "load_script", scenario: "discovery" });
+    }
   }
 
   function onDaisyInjectLevel(stmPin, level) {
@@ -242,6 +247,12 @@ export default function App() {
                 className={`view-btn${view === "daisy" ? " active" : ""}`}
                 onClick={() => setView("daisy")}
               >Daisy Seed</button>
+              <button
+                className="view-btn"
+                disabled={!simRunning || (view === "daisy" && elfFiles.length > 0 && !selectedElf)}
+                onClick={handleActivate}
+                title={view === "daisy" && elfFiles.length > 0 && !selectedElf ? "Select firmware first" : `Activate ${view} scenario`}
+              >Activate</button>
             </div>
           </div>
           <p className="subtitle">
@@ -252,13 +263,15 @@ export default function App() {
         </div>
         <div className="pill-row">
           <span className={`pill ${simRunning ? "ok" : "warn"}`}>{statusLabel}</span>
+          {view === "daisy" && activeScript === "daisy" && pcValue && (
+            <span className="pill" style={{fontFamily: 'monospace', fontSize: '0.7rem', letterSpacing: '0.04em'}}>PC {pcValue}</span>
+          )}
           {view === "daisy" && elfFiles.length > 0 && (
             <select
               className="daisy-elf-select"
               value={selectedElf}
-              onChange={(e) => handleSelectElf(e.target.value)}
-              disabled={activeScript !== "daisy"}
-              title="Select firmware binary to load"
+              onChange={(e) => setSelectedElf(e.target.value)}
+              title="Select firmware binary"
             >
               <option value="" disabled>Select firmware…</option>
               {elfFiles.map((elf) => (
@@ -347,19 +360,6 @@ export default function App() {
               </div>
             )}
           </div>
-
-          {view !== activeScript && (
-            <div className="board-load-overlay">
-              <div className="board-load-prompt">
-                <p className="board-load-prompt-text">
-                  {view === "daisy" ? "Daisy Seed" : "Discovery Dual"} not loaded in Renode
-                </p>
-                <button className="board-load-btn" onClick={() => handleLoadScript(view)}>
-                  Load {view === "daisy" ? "Daisy Seed" : "Discovery Dual"}
-                </button>
-              </div>
-            </div>
-          )}
         </div>
       </section>
     </main>
