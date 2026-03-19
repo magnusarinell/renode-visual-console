@@ -10,11 +10,13 @@ import { BACKEND_WS_URL, BOARDS } from "../constants";
  * @param {(machine: string, pin: string, level: boolean|null) => void} callbacks.onPinState
  * @param {(stream: string, text: string, machine: string|null) => void} callbacks.onLog
  * @param {(scenario: string) => void} [callbacks.onScriptLoaded]
+ * @param {(machine: string, data: string) => void} [callbacks.onOledFrame]
+ * @param {(msg: object) => void} [callbacks.onHello]
  */
-export function useWebSocket({ onStatus, onPinState, onLog, onScriptLoaded }) {
+export function useWebSocket({ onStatus, onPinState, onLog, onScriptLoaded, onOledFrame, onHello }) {
   const wsRef = useRef(null);
-  const cbRef = useRef({ onStatus, onPinState, onLog, onScriptLoaded });
-  cbRef.current = { onStatus, onPinState, onLog, onScriptLoaded };
+  const cbRef = useRef({ onStatus, onPinState, onLog, onScriptLoaded, onOledFrame, onHello });
+  cbRef.current = { onStatus, onPinState, onLog, onScriptLoaded, onOledFrame, onHello };
 
   const [socketState, setSocketState] = useState("disconnected");
 
@@ -39,8 +41,9 @@ export function useWebSocket({ onStatus, onPinState, onLog, onScriptLoaded }) {
 
         if (msg.type === "hello" || msg.type === "status") {
           cbRef.current.onStatus(Boolean(msg.running));
-          if (msg.type === "hello" && msg.scenario) {
-            cbRef.current.onScriptLoaded?.(msg.scenario);
+          if (msg.type === "hello") {
+            if (msg.scenario) cbRef.current.onScriptLoaded?.(msg.scenario);
+            cbRef.current.onHello?.(msg);
           }
           return;
         }
@@ -58,6 +61,11 @@ export function useWebSocket({ onStatus, onPinState, onLog, onScriptLoaded }) {
 
         if (msg.type === "log") {
           cbRef.current.onLog(msg.stream || "log", msg.text || "", msg.machine || null);
+          return;
+        }
+
+        if (msg.type === "oled_frame" && typeof msg.data === "string") {
+          cbRef.current.onOledFrame?.(msg.machine || "", msg.data);
         }
       } catch {
         cbRef.current.onLog("error", `Invalid JSON message: ${evt.data}`, null);

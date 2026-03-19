@@ -9,6 +9,7 @@ import { DAISY_MACHINE, DAISY_INPUT_PIN, DAISY_OUTPUT_PIN, DAISY_LED_PIN } from 
 import { useWebSocket } from "./hooks/useWebSocket";
 import { BoardCard } from "./components/BoardCard";
 import { DaisySeedBoard } from "./components/daisy/DaisySeedBoard";
+import { OledDisplay } from "./components/daisy/OledDisplay";
 import { LogPanel } from "./components/LogPanel";
 
 let _logSeq = 0;
@@ -22,6 +23,9 @@ export default function App() {
   const [outputLevel, setOutputLevel]         = useState(null);  // daisy PA15
   const [inputLevel, setInputLevel]           = useState(null);  // daisy PB3
   const [ledLevel, setLedLevel]               = useState(null);  // daisy PC7
+  const [oledFrame, setOledFrame]             = useState(null);
+  const [elfFiles, setElfFiles]               = useState([]);
+  const [selectedElf, setSelectedElf]         = useState("");
   const [pinStatesByBoard, setPinStatesByBoard] = useState(() =>
     Object.fromEntries(BOARDS.map((b) => [b.id, buildPinMap()]))
   );
@@ -43,12 +47,17 @@ export default function App() {
 
   const { socketState, send } = useWebSocket({
     onStatus: (running) => setSimRunning(running),
+    onHello: (msg) => {
+      if (Array.isArray(msg.elf_list)) setElfFiles(msg.elf_list);
+    },
+    onOledFrame: (_machine, data) => setOledFrame(data),
     onScriptLoaded: (scenario) => {
       setActiveScript(scenario);
       // Reset pin levels on scenario switch
       setOutputLevel(null);
       setInputLevel(null);
       setLedLevel(null);
+      if (scenario !== "daisy") setOledFrame(null);
     },
     onPinState: (machine, pin, level) => {
       if (machine === DAISY_MACHINE) {
@@ -165,6 +174,12 @@ export default function App() {
     send({ type: "load_script", scenario: target });
   }
 
+  function handleSelectElf(elf) {
+    setSelectedElf(elf);
+    setOledFrame(null);
+    send({ type: "select_binary", elf });
+  }
+
   function onDaisyInjectLevel(stmPin, level) {
     if (stmPin === DAISY_OUTPUT_PIN) return; // PA15 is firmware output
     send({ type: "gpio", op: "write", machine: DAISY_MACHINE, pin: stmPin, level });
@@ -237,6 +252,22 @@ export default function App() {
         </div>
         <div className="pill-row">
           <span className={`pill ${simRunning ? "ok" : "warn"}`}>{statusLabel}</span>
+          {view === "daisy" && elfFiles.length > 0 && (
+            <select
+              className="daisy-elf-select"
+              value={selectedElf}
+              onChange={(e) => handleSelectElf(e.target.value)}
+              disabled={activeScript !== "daisy"}
+              title="Select firmware binary to load"
+            >
+              <option value="" disabled>Select firmware…</option>
+              {elfFiles.map((elf) => (
+                <option key={elf} value={elf}>
+                  {elf.split("/").pop().replace(".elf", "")}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
       </section>
 
@@ -265,6 +296,7 @@ export default function App() {
                 onPinSelect={setSelectedDaisyPin}
                 onInjectLevel={onDaisyInjectLevel}
                 onPulsePin={onDaisyPulsePin}
+                oledElement={<OledDisplay frame={oledFrame} />}
               />
             ) : (
               <div className="boards-tab-content">

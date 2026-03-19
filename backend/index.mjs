@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync, existsSync } from "node:fs";
 import http from "node:http";
 import net from "node:net";
 import { fileURLToPath } from "node:url";
@@ -28,7 +28,7 @@ const thisFile = fileURLToPath(import.meta.url);
 const repoRoot = path.resolve(path.dirname(thisFile), "..");
 const simScript = process.env.RENODE_SCRIPT
   ? path.resolve(repoRoot, process.env.RENODE_SCRIPT)
-  : path.join(repoRoot, "zephyr", "renode", "discovery_dual.resc");
+  : "";
 const simScriptPosix = simScript.replace(/\\/g, "/");
 const renodeCmd = process.env.RENODE_CMD || "renode";
 
@@ -38,11 +38,12 @@ const DAISY_ELF = process.env.DAISY_ELF || "";
 
 // Derive initial scenario from the loaded script path (simScript must be defined first)
 const _isDaisyScript    = simScript.includes("daisy");
+const _hasScript        = Boolean(simScript);
 // Mutable active scenario config (can be switched at runtime)
-let activeMachines       = _isDaisyScript ? ["daisy_0"]       : [...MACHINES];
-let activeUartPeripheral = _isDaisyScript ? "sysbus.usart1"   : (RENODE_UART || "sysbus.usart3");
-let activeHubPeripheral  = _isDaisyScript ? null              : "sysbus.usart2";
-let activeScenario       = _isDaisyScript ? "daisy"           : "discovery";
+let activeMachines       = _hasScript ? (_isDaisyScript ? ["daisy_0"] : [...MACHINES]) : [];
+let activeUartPeripheral = _hasScript ? (_isDaisyScript ? "sysbus.usart1" : (RENODE_UART || "sysbus.usart3")) : "";
+let activeHubPeripheral  = _hasScript ? (_isDaisyScript ? null : "sysbus.usart2") : null;
+let activeScenario       = _hasScript ? (_isDaisyScript ? "daisy" : "discovery") : "none";
 
 let renode = null;
 let renodeSocket = null;
@@ -58,6 +59,62 @@ let renodeConnecting = false;
 let renodeLoading    = false; // true while a scenario is being hot-switched
 let _renodeRetryTimer = null;
 let rpcQueue = Promise.resolve();
+
+// ─── Daisy ELF discovery ─────────────────────────────────────────────────────
+function scanDaisyElfs() {
+  const seedDir = path.join(repoRoot, "libdaisy-examples", "seed");
+  if (!existsSync(seedDir)) return [];
+  try {
+    return readdirSync(seedDir, { withFileTypes: true })
+      .filter((d) => d.isDirectory())
+      .flatMap((d) => {
+        const buildDir = path.join(seedDir, d.name, "build");
+        if (!existsSync(buildDir)) return [];
+        return readdirSync(buildDir)
+          .filter((f) => f.endsWith(".elf"))
+          .map((f) => `libdaisy-examples/seed/${d.name}/build/${f}`);
+      });
+  } catch {
+    return [];
+  }
+}
+
+// ─── OLED framebuffer poll loop (Daisy scenario only) ────────────────────────
+let _oledPollTimer = null;
+
+async function pollOledFrame() {
+  if (!renodeReady || !renodeRunning || activeScenario !== "daisy") return;
+  const machine = activeMachines[0];
+  if (!machine) return;
+  try {
+    // Read 1024 bytes from SRAM4 via a Renode monitor Python one-liner.
+    // The stub writes each completed framebuffer there after 8 pages are received.
+    const cmd =
+      "python import base64; d=bytearray(); " +
+      "[d.extend([(machine.SystemBus.ReadDoubleWord(0x38000000+i*4)>>s)&0xFF for s in (0,8,16,24)]) for i in range(256)]; " +
+      "print(base64.b64encode(bytes(d)).decode())";
+    const result = await executeRenodeCommandSilent(cmd, machine);
+    const raw = (result.return || result.output || "").trim();
+    // Expect a ~1368-char base64 string for 1024 bytes
+    if (raw.length >= 1000 && /^[A-Za-z0-9+/]+=*$/.test(raw)) {
+      emit({ type: "oled_frame", machine, data: raw, ts: Date.now() });
+    }
+  } catch { /* ignore transient errors */ }
+}
+
+function startOledPollLoop() {
+  if (_oledPollTimer || activeScenario !== "daisy") return;
+  _oledPollTimer = setInterval(() => {
+    pollOledFrame().catch(() => {});
+  }, 300);
+}
+
+function stopOledPollLoop() {
+  if (_oledPollTimer) {
+    clearInterval(_oledPollTimer);
+    _oledPollTimer = null;
+  }
+}
 
 // Cache of symbol address from map file (address is same for all machines since same ELF)
 let _blinkIntervalMsAddr = undefined;
@@ -683,11 +740,16 @@ async function connectToRobotServer() {
     }
     const version = [ping.output, ping.return].filter(Boolean).join(" ").trim();
     emitLog("system", `Connected to Renode robot server. ${version}`);
-    emitLog("system", `Loading script: ${simScriptPosix}`);
-    await setDaisyElfVariable();
-    const includeResult = await executeRenodeScript(simScriptPosix);
-    if (includeResult.status === "FAIL") {
-      emitLog("system", `Include warning: ${includeResult.error || "unknown include failure"}`);
+
+    if (activeScenario !== "none") {
+      emitLog("system", `Loading script: ${simScriptPosix}`);
+      await setDaisyElfVariable();
+      const includeResult = await executeRenodeScript(simScriptPosix);
+      if (includeResult.status === "FAIL") {
+        emitLog("system", `Include warning: ${includeResult.error || "unknown include failure"}`);
+      }
+    } else {
+      emitLog("system", "No scenario selected — waiting for user to load a board.");
     }
 
     renodeRunning = true;
@@ -713,6 +775,7 @@ async function connectToRobotServer() {
       }
       startGpioPushLoop(machine);
     }
+    if (activeScenario === "daisy") startOledPollLoop();
   } catch (err) {
     renodeRunning = false;
     renodeReady = false;
@@ -723,6 +786,7 @@ async function connectToRobotServer() {
     hubTesterIdByMachine.clear();
     stopHubDrainLoops();
     stopGpioPushLoops();
+    stopOledPollLoop();
     emit({ type: "status", running: false, ts: Date.now() });
     emitLog("system", `Cannot connect to Renode: ${err.message || "no response"} — retrying in 5s…`);
     _renodeRetryTimer = setTimeout(() => {
@@ -749,6 +813,7 @@ async function handleLoadScript(scenario) {
   stopUartDrainLoops();
   stopHubDrainLoops();
   stopGpioPushLoops();
+  stopOledPollLoop();
   uartTesterReadyByMachine.clear();
   uartTesterIdByMachine.clear();
   hubTesterReadyByMachine.clear();
@@ -780,10 +845,9 @@ async function handleLoadScript(scenario) {
   emitLog("system", `Clear: ${clearResult.status === "PASS" ? "OK" : (clearResult.error || clearResult.status)}`);
   await sleep(300); // let Renode settle
 
-  const newScript = path.join(
-    repoRoot, "zephyr", "renode",
-    scenario === "daisy" ? "daisy_seed.resc" : "discovery_dual.resc"
-  );
+  const newScript = scenario === "daisy"
+    ? path.join(repoRoot, "renode", "daisy", "daisy_seed.resc")
+    : path.join(repoRoot, "renode", "discovery", "discovery_dual.resc");
   const newScriptPosix = newScript.replace(/\\/g, "/");
   emitLog("system", `Loading script: ${newScriptPosix}`);
 
@@ -818,6 +882,7 @@ async function handleLoadScript(scenario) {
     }
     startGpioPushLoop(machine);
   }
+  if (activeScenario === "daisy") startOledPollLoop();
 }
 
 const clients = new Set();
@@ -1047,7 +1112,7 @@ wss.on("connection", (ws) => {
   console.log("WebSocket client connected");
 
   // Send current state and buffered log history before joining broadcast set
-  ws.send(JSON.stringify({ type: "hello", running: renodeRunning, scenario: activeScenario, ts: Date.now() }));
+  ws.send(JSON.stringify({ type: "hello", running: renodeRunning, scenario: activeScenario, elf_list: scanDaisyElfs(), ts: Date.now() }));
   for (const entry of logBuffer) {
     if (ws.readyState === 1) ws.send(JSON.stringify(entry));
   }
@@ -1096,6 +1161,14 @@ wss.on("connection", (ws) => {
         }
         handleLoadScript(msg.scenario).catch((err) =>
           emitLog("system", `Load script error: ${err.message}`)
+        );
+        return;
+      }
+
+      if (msg.type === "select_binary" && typeof msg.elf === "string") {
+        _daisyElfOverride = msg.elf;
+        handleLoadScript("daisy").catch((err) =>
+          emitLog("system", `select_binary error: ${err.message}`)
         );
         return;
       }

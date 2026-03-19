@@ -4,6 +4,7 @@ import "../App.css";
 import "../components/daisy/Daisy.css";
 import { useWebSocket } from "../hooks/useWebSocket";
 import { DaisySeedBoard } from "../components/daisy/DaisySeedBoard";
+import { OledDisplay } from "../components/daisy/OledDisplay";
 import { DAISY_MACHINE, DAISY_INPUT_PIN, DAISY_OUTPUT_PIN, DAISY_LED_PIN } from "../daisy-constants";
 
 let _logSeq = 0;
@@ -15,6 +16,9 @@ export default function DaisyPage() {
   const [inputLevel, setInputLevel]   = useState(null);  // PB3 physical level
   const [ledLevel, setLedLevel]       = useState(null);  // PC7 onboard LED
   const [logs, setLogs]               = useState([]);
+  const [oledFrame, setOledFrame]     = useState(null);  // base64 encoded framebuffer
+  const [elfFiles, setElfFiles]       = useState([]);    // available ELF binaries
+  const [selectedElf, setSelectedElf] = useState("");
 
   const { socketState, send } = useWebSocket({
     onStatus: (running) => setSimRunning(running),
@@ -39,6 +43,10 @@ export default function DaisyPage() {
         }));
       if (lines.length) setLogs((prev) => [...prev, ...lines].slice(-MAX_LOGS));
     },
+    onHello: (msg) => {
+      if (Array.isArray(msg.elf_list)) setElfFiles(msg.elf_list);
+    },
+    onOledFrame: (_machine, data) => setOledFrame(data),
   });
 
   // Poll output pin state every 500 ms
@@ -57,6 +65,12 @@ export default function DaisyPage() {
 
   function handleButtonUp() {
     send({ type: "gpio", op: "write", machine: DAISY_MACHINE, pin: DAISY_INPUT_PIN, level: true });
+  }
+
+  function handleSelectElf(elf) {
+    setSelectedElf(elf);
+    setOledFrame(null);
+    send({ type: "select_binary", elf });
   }
 
   const statusLabel = useMemo(() => {
@@ -79,6 +93,22 @@ export default function DaisyPage() {
         </div>
         <div className="pill-row">
           <span className={`pill ${simRunning ? "ok" : "warn"}`}>{statusLabel}</span>
+          {elfFiles.length > 0 && (
+            <select
+              className="daisy-elf-select"
+              value={selectedElf}
+              onChange={(e) => handleSelectElf(e.target.value)}
+              disabled={!simRunning}
+              title="Select firmware binary to load"
+            >
+              <option value="" disabled>Select firmware…</option>
+              {elfFiles.map((elf) => (
+                <option key={elf} value={elf}>
+                  {elf.split("/").pop().replace(".elf", "")}
+                </option>
+              ))}
+            </select>
+          )}
           <Link to="/" className="pill nav-pill">← Discovery Boards</Link>
         </div>
       </section>
@@ -90,6 +120,7 @@ export default function DaisyPage() {
           ledLevel={ledLevel}
           onButtonDown={handleButtonDown}
           onButtonUp={handleButtonUp}
+          oledElement={<OledDisplay frame={oledFrame} />}
         />
 
         <aside className="daisy-log-panel">

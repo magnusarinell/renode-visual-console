@@ -21,3 +21,8 @@ syscfg_stub: Python.PythonPeripheral @ sysbus 0x58000400
 qspi_stub: Python.PythonPeripheral @ sysbus 0x52005000
     size: 0x400
     filename: "C:/git/renode-visual-console/renode/daisy/stm32h7_qspi_stub.py"
+
+// SPI1 stub — intercepts SSD1306 traffic and writes framebuffer to SRAM4
+spi1_stub: Python.PythonPeripheral @ sysbus 0x40013000
+    size: 0x400
+    filename: "C:/git/renode-visual-console/renode/daisy/ssd1306_spi_stub.py"

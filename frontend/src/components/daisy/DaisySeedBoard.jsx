@@ -63,6 +63,7 @@ export function DaisySeedBoard({
   selectedPin,
   onInjectLevel,
   onPulsePin,
+  oledElement,
 }) {
   const heldRef = useRef(false);
 
@@ -208,8 +209,9 @@ export function DaisySeedBoard({
         />
       </div>
 
+      {oledElement}
+
       <div className="daisy-info-column">
-        {/* ── Pin function list — compact two-column grid to the right of the board ── */}
         <div className="daisy-badge-panel">
           <div className="daisy-pinlist">
             {PAIRED_PINS.map((row) => (
