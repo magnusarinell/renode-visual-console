@@ -183,6 +183,24 @@
   line-height: 1;
 }
 
+/* ── Pin-hole level colors (HIGH = green ring, LOW = red ring) ───────────── */
+
+.daisy-board-shell .pin-btn.high .daisy-pin-hole {
+  border-color: #95ff67;
+  box-shadow:
+    0 0 8px rgba(117, 255, 78, 0.8),
+    0 0 0 1.5px rgba(149, 255, 103, 0.35),
+    inset 0 2px 4px rgba(0, 0, 0, 0.9);
+}
+
+.daisy-board-shell .pin-btn.low .daisy-pin-hole {
+  border-color: #ff8d72;
+  box-shadow:
+    0 0 6px rgba(255, 120, 94, 0.65),
+    0 0 0 1.5px rgba(255, 141, 114, 0.35),
+    inset 0 2px 4px rgba(0, 0, 0, 0.9);
+}
+
 /* ── Chip silk-screen labels (between chips in board body) ───────────────── */
 
 .daisy-chip-label {

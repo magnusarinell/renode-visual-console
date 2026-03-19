@@ -11,6 +11,11 @@ function levelClass(level) {
   return level === true ? "high" : level === false ? "low" : "floating";
 }
 
+function pinLevelClass(row, pinStates) {
+  if (!row.stmPin) return "floating";
+  return levelClass(pinStates[row.stmPin] ?? null);
+}
+
 function DaisyPinCtrlTab({ selectedSignal, selectedPinWritable, onInjectLevel, onPulsePin }) {
   const canDriveSignal =
     selectedPinWritable &&
@@ -61,6 +66,7 @@ export function DaisySeedBoard({
   onPulsePin,
   oledElement,
   breadboardElement,
+  pinStates = {},
 }) {
   const activeSignalPin = selectedPin ?? DAISY_INPUT_PIN;
   const selectedSignal  = DAISY_SIGNAL_CARDS.find((s) => s.stmPin === activeSignalPin)
@@ -80,9 +86,9 @@ export function DaisySeedBoard({
               {DAISY_PINOUT_LEFT.map((row) => (
                 <div className="pin-row" key={`left-${row.number}`}>
                   <button
-                    className="pin pin-btn floating nc daisy-hw-pin"
+                    className={`pin pin-btn ${pinLevelClass(row, pinStates)} nc daisy-hw-pin`}
                     disabled
-                    title={`Pin ${row.number}: ${row.pinLabel}`}
+                    title={`Pin ${row.number}: ${row.pinLabel}${row.stmPin ? " · " + row.stmPin : ""}`}
                     type="button"
                   >
                     <span className="daisy-pin-inner-left">
@@ -128,9 +134,9 @@ export function DaisySeedBoard({
               {DAISY_PINOUT_RIGHT.map((row) => (
                 <div className="pin-row" key={`right-${row.number}`}>
                   <button
-                    className="pin pin-btn floating nc daisy-hw-pin"
+                    className={`pin pin-btn ${pinLevelClass(row, pinStates)} nc daisy-hw-pin`}
                     disabled
-                    title={`Pin ${row.number}: ${row.pinLabel}`}
+                    title={`Pin ${row.number}: ${row.pinLabel}${row.stmPin ? " · " + row.stmPin : ""}`}
                     type="button"
                   >
                     <span className="daisy-pin-inner-right">

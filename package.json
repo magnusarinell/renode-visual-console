@@ -11,9 +11,11 @@
     "build:daisy:button": "bash scripts/build_daisy.sh seed/Button",
     "setup:daisy": "bash scripts/setup_libdaisy.sh",
     "start:renode": "renode --robot-server-port 55555 --disable-gui --hide-monitor --hide-log --plain",
+    "start:renode:verbose": "renode --robot-server-port 55555 --plain",
     "start:backend": "cross-env RENODE_ROBOT_PORT=55555 npm --prefix backend run start",
     "start:frontend": "npm --prefix frontend run dev -- --host",
-    "start": "concurrently -k -n renode,backend,frontend -c yellow,cyan,magenta \"npm run start:renode\" \"npm run start:backend\" \"npm run start:frontend\""
+    "start": "concurrently -k -n renode,backend,frontend -c yellow,cyan,magenta \"npm run start:renode\" \"npm run start:backend\" \"npm run start:frontend\"",
+    "start:verbose": "concurrently -k -n renode,backend,frontend -c yellow,cyan,magenta \"npm run start:renode:verbose\" \"npm run start:backend\" \"npm run start:frontend\""
   },
   "devDependencies": {
     "concurrently": "^9.2.1",

@@ -18,6 +18,7 @@ export function BreadboardButton({ onDown, onUp }) {
   }
 
   function handlePointerUp() {
+    if (!pressed) return;
     setPressed(false);
     onUp?.();
   }
@@ -46,7 +47,6 @@ export function BreadboardButton({ onDown, onUp }) {
             onPointerDown={handlePointerDown}
             onPointerUp={handlePointerUp}
             onPointerLeave={handlePointerUp}
-            title="Håll ned för att trycka (PA2 → GND, active LOW)"
             type="button"
           >
             <span className="bb-tact-cap" />

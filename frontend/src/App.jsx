@@ -25,6 +25,7 @@ export default function App() {
   const [inputLevel, setInputLevel]           = useState(null);  // daisy PB3
   const [ledLevel, setLedLevel]               = useState(null);  // daisy PC7
   const [oledFrame, setOledFrame]             = useState(null);
+  const [daisyPinStates, setDaisyPinStates]   = useState({});
   const [elfFiles, setElfFiles]               = useState([]);
   const [selectedElf, setSelectedElf]         = useState("");
   const [discoveryElfs, setDiscoveryElfs]     = useState([]);
@@ -62,18 +63,23 @@ export default function App() {
     ]),
     onScriptLoaded: (scenario) => {
       setActiveScript(scenario);
-      // Reset pin levels on scenario switch
       setOutputLevel(null);
       setInputLevel(null);
       setLedLevel(null);
       setPcLog([]);
-      if (scenario !== "daisy") setOledFrame(null);
+      setOledFrame(null);
+      setLogs([]);
+      setDaisyPinStates({});
+      // Initialize PA2 HIGH (pull-up, button not pressed) so firmware doesn't
+      // read a spurious LOW on startup before any override has been established.
+      send({ type: "gpio", op: "write", machine: DAISY_MACHINE, pin: DAISY_BUTTON_PIN, level: true });
     },
     onPinState: (machine, pin, level) => {
       if (machine === DAISY_MACHINE) {
         if (pin === DAISY_OUTPUT_PIN) setOutputLevel(level);
         if (pin === DAISY_INPUT_PIN)  setInputLevel(level);
         if (pin === DAISY_LED_PIN)    setLedLevel(level);
+        setDaisyPinStates((prev) => ({ ...prev, [pin]: level }));
         return;
       }
       setPinStatesByBoard((prev) => {
@@ -203,6 +209,7 @@ export default function App() {
     setOutputLevel(null);
     setInputLevel(null);
     setLedLevel(null);
+    setDaisyPinStates({});
     setPinStatesByBoard(Object.fromEntries(BOARDS.map((b) => [b.id, buildPinMap()])));
   }
 
@@ -340,6 +347,7 @@ export default function App() {
                 onPulsePin={onDaisyPulsePin}
                 oledElement={<OledDisplay frame={oledFrame} />}
                 breadboardElement={<BreadboardButton onDown={handleBreadboardDown} onUp={handleBreadboardUp} />}
+                pinStates={daisyPinStates}
               />
             ) : (
               <div className="boards-tab-content">

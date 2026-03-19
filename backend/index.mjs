@@ -350,7 +350,7 @@ async function handleGpioPulse(msg) {
   // Drive pin LOW (active/pressed for ACTIVE_LOW button)
   await executeRenodeCommandSilent(`${portName} OnGPIO ${parsed.pin} false`, machine);
   if (!activeMachines.includes(machine)) return; // scenario may have switched during await
-  emitLog("system", `GPIO ${msg.pin} \u2192 LOW (pulse, ${machine})`, machine);
+  emitLog("system", `GPIO ${formatGpioPin(msg.pin)} \u2192 LOW (pulse, ${machine})`, machine);
 
   // Advance simulation time so firmware's gpio_pin_get_dt polls see the pressed state.
   const testerId = uartTesterIdByMachine.get(machine);
@@ -364,7 +364,7 @@ async function handleGpioPulse(msg) {
   if (!activeMachines.includes(machine)) return;
   await executeRenodeCommandSilent(`${portName} OnGPIO ${parsed.pin} true`, machine);
   if (!activeMachines.includes(machine)) return;
-  emitLog("system", `GPIO ${msg.pin} \u2192 HIGH (pulse release, ${machine})`, machine);
+  emitLog("system", `GPIO ${formatGpioPin(msg.pin)} \u2192 HIGH (pulse release, ${machine})`, machine);
 
   // Read back and emit final state
   const readResult = await executeRenodeCommandSilent(`${portName} GetGPIOs`, machine);
@@ -396,7 +396,7 @@ async function handleGpioRequest(msg) {
     const level = Boolean(msg.level);
     const cmd = `${portName} OnGPIO ${parsed.pin} ${level ? "true" : "false"}`;
     emitLog("command", `${cmd}\n`, machine);
-    emitLog("system", `GPIO ${msg.pin} \u2192 ${level ? "HIGH" : "LOW"} (${machine})`, machine);
+    emitLog("system", formatGpioLogEntry(msg.pin, level ? "HIGH" : "LOW", machine), machine);
     const writeResult = await executeRenodeCommandSilent(cmd, machine);
     if (writeResult.status === "FAIL") {
       if (activeMachines.includes(machine)) {
@@ -404,6 +404,10 @@ async function handleGpioRequest(msg) {
       }
       return;
     }
+    // Emit the written level immediately — GetGPIOs may omit unset (LOW) pins
+    gpioWriteOverrides[`${machine}:${msg.pin}`] = level;
+    _gpioPrevState[`${machine}:P${parsed.port}${parsed.pin}`] = level;
+    emit({ type: "pin_state", machine, pin: msg.pin, level, ts: Date.now() });
     // Advance simulation time so the firmware observes the injected level.
     if (!activeMachines.includes(machine)) return;
     const writeTid = uartTesterIdByMachine.get(machine);
@@ -414,6 +418,9 @@ async function handleGpioRequest(msg) {
       ).catch(() => {});
     }
     if (!activeMachines.includes(machine)) return;
+    // Skip re-reading the written pin — level already emitted above; only read for
+    // other pins on same port that firmware may have changed (e.g. LED).
+    return;
   }
 
   const readResult = await executeRenodeCommandSilent(`${portName} GetGPIOs`, machine);
@@ -462,7 +469,11 @@ async function handleGpioScanRequest(msg) {
 
     const gpioMap = parseGpioList(result.return || result.output || "");
     for (const item of pins) {
-      const level = gpioMap.has(item.pin) ? gpioMap.get(item.pin) : null;
+      const fromMap = gpioMap.has(item.pin) ? gpioMap.get(item.pin) : undefined;
+      // If the pin isn't listed by GetGPIOs (Renode omits unset pins), fall back
+      // to the last value we explicitly wrote via OnGPIO so the UI stays correct.
+      const override = gpioWriteOverrides[`${machine}:P${port}${item.pin}`];
+      const level = fromMap !== undefined ? fromMap : (override !== undefined ? override : null);
       emit({ type: "pin_state", machine, pin: item.label, level, ts: Date.now() });
     }
   }
@@ -696,14 +707,39 @@ const GPIO_PUSH_PORTS_DISCOVERY = {
   B: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
   D: [12, 13, 14, 15],
 };
+const DAISY_PIN_LABELS = {
+  PA0: "D25·A10", PA1: "D24·A9",  PA2: "D28·A11 Pin35", PA3: "D16·A1",
+  PA4: "D23·A8",  PA5: "D22·A7",  PA6: "D19·A4",        PA7: "D18·A3",  PA15: "Zephyr led0",
+  PB1: "D17·A2",  PB4: "D9",      PB5: "D10",           PB6: "D13",   PB7: "D14",
+  PB8: "D11",     PB9: "D12",     PB12: "D0",           PB14: "D29",  PB15: "D30",
+  PC0: "D15·A0",  PC1: "D20·A5",  PC4: "D21·A6",        PC7: "LED",
+  PC8: "D4",      PC9: "D3",      PC10: "D2",           PC11: "D1",   PC12: "D6",
+  PD2: "D5",      PD11: "D26",    PG9: "D27",           PG10: "D7",   PG11: "D8",
+};
+function formatGpioPin(pin) {
+  if (activeScenario !== "daisy") return pin;
+  const lbl = DAISY_PIN_LABELS[pin];
+  return lbl ? `${lbl} → STM32 GPIO ${pin}` : `GPIO ${pin}`;
+}
+function formatGpioLogEntry(pin, levelStr, machine) {
+  if (activeScenario === "daisy") {
+    const lbl = DAISY_PIN_LABELS[pin];
+    if (lbl) return `${lbl} → STM32 GPIO ${pin} → ${levelStr}`;
+  }
+  return `GPIO ${pin} → ${levelStr} (${machine})`;
+}
+
 const GPIO_PUSH_PORTS_DAISY = {
-  C: [7],  // User LED on Daisy Seed
+  A: [0, 1, 2, 3, 4, 5, 6, 7, 15],      // D25,D24,D28(btn),D16,D23,D22,D19,D18,led0
+  B: [1, 4, 5, 6, 7, 8, 9, 12, 14, 15], // D17,D9-D14,D0,D29,D30
+  C: [0, 1, 4, 7, 8, 9, 10, 11, 12],    // D15,D20,D21,LED,D4,D3,D2,D1,D6
 };
 function getGpioPushPorts() {
   return activeScenario === "daisy" ? GPIO_PUSH_PORTS_DAISY : GPIO_PUSH_PORTS_DISCOVERY;
 }
 
 let _gpioPrevState = {}; // key: `${machine}:P${port}${pin}` -> level
+const gpioWriteOverrides = {}; // key: `${machine}:PIN` -> level (for unset/LOW pins omitted by GetGPIOs)
 const gpioScanTimers = new Map();
 
 async function pushGpioState(machine) {
@@ -717,8 +753,13 @@ async function pushGpioState(machine) {
     const raw = result.return || result.output || "";
     const gpioMap = parseGpioList(raw);
     for (const pinNum of pins) {
-      const level = gpioMap.has(pinNum) ? gpioMap.get(pinNum) : null;
-      const key = `${machine}:P${port}${pinNum}`;
+      const fromMap = gpioMap.has(pinNum) ? gpioMap.get(pinNum) : undefined;
+      const overrideKey = `${machine}:P${port}${pinNum}`;
+      const override = gpioWriteOverrides[overrideKey];
+      // Override (written level) takes priority over Renode read — floating/pull-up pins
+      // alternate randomly in GetGPIOs, so we trust what we explicitly wrote.
+      const level = override !== undefined ? override : (fromMap !== undefined ? fromMap : null);
+      const key = overrideKey;
       if (_gpioPrevState[key] !== level) {
         _gpioPrevState[key] = level;
         emit({ type: "pin_state", machine, pin: `P${port}${pinNum}`, level, ts: Date.now() });
@@ -740,6 +781,7 @@ function stopGpioPushLoops() {
   for (const id of gpioScanTimers.values()) clearInterval(id);
   gpioScanTimers.clear();
   _gpioPrevState = {};
+  Object.keys(gpioWriteOverrides).forEach((k) => delete gpioWriteOverrides[k]);
 }
 
 async function connectToRobotServer() {
@@ -854,6 +896,7 @@ async function handleLoadScript(scenario) {
   hubTesterReadyByMachine.clear();
   hubTesterIdByMachine.clear();
   _gpioPrevState = {};
+  Object.keys(gpioWriteOverrides).forEach((k) => delete gpioWriteOverrides[k]);
   // Remove all currently active machines from Renode one by one
   const machinesToRemove = [...activeMachines]; // snapshot before we overwrite activeMachines
 
@@ -879,6 +922,7 @@ async function handleLoadScript(scenario) {
   const clearResult = await executeRenodeCommandSilent("Clear", null).catch((e) => ({ status: "FAIL", error: e.message }));
   emitLog("system", `Clear: ${clearResult.status === "PASS" ? "OK" : (clearResult.error || clearResult.status)}`);
   await sleep(300); // let Renode settle
+  try { unlinkSync(OLED_FRAME_PATH); } catch { /* ok if missing */ }
 
   const newScript = scenario === "daisy"
     ? path.join(repoRoot, "renode", "daisy", "daisy_seed.resc")
@@ -938,6 +982,7 @@ async function handleClear() {
   hubTesterReadyByMachine.clear();
   hubTesterIdByMachine.clear();
   _gpioPrevState = {};
+  Object.keys(gpioWriteOverrides).forEach((k) => delete gpioWriteOverrides[k]);
   renodeRunning = false;
   renodeReady = false;
   activeMachines = [];

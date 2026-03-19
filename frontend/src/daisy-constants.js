@@ -25,16 +25,17 @@ export const DAISY_PIN_LEGEND = [
 
 export const DAISY_PINOUT_LEFT = [
 	{ number: 21, pinLabel: "3V3", badges: [{ label: "3V3 Analog", tone: "power" }] },
-	{ number: 22, pinLabel: "A0 / D15", badges: [{ label: "ADC 0", tone: "analog-gpio" }] },
-	{ number: 23, pinLabel: "A1 / D16", badges: [{ label: "ADC 1", tone: "analog-gpio" }] },
-	{ number: 24, pinLabel: "A2 / D17", badges: [{ label: "ADC 2", tone: "analog-gpio" }] },
-	{ number: 25, pinLabel: "A3 / D18", badges: [{ label: "ADC 3", tone: "analog-gpio" }] },
-	{ number: 26, pinLabel: "A4 / D19", badges: [{ label: "ADC 4", tone: "analog-gpio" }] },
-	{ number: 27, pinLabel: "A5 / D20", badges: [{ label: "ADC 5", tone: "analog-gpio" }] },
-	{ number: 28, pinLabel: "A6 / D21", badges: [{ label: "ADC 6", tone: "analog-gpio" }] },
+	{ number: 22, pinLabel: "A0 / D15", stmPin: "PC0",  badges: [{ label: "ADC 0", tone: "analog-gpio" }] },
+	{ number: 23, pinLabel: "A1 / D16", stmPin: "PA3",  badges: [{ label: "ADC 1", tone: "analog-gpio" }] },
+	{ number: 24, pinLabel: "A2 / D17", stmPin: "PB1",  badges: [{ label: "ADC 2", tone: "analog-gpio" }] },
+	{ number: 25, pinLabel: "A3 / D18", stmPin: "PA7",  badges: [{ label: "ADC 3", tone: "analog-gpio" }] },
+	{ number: 26, pinLabel: "A4 / D19", stmPin: "PA6",  badges: [{ label: "ADC 4", tone: "analog-gpio" }] },
+	{ number: 27, pinLabel: "A5 / D20", stmPin: "PC1",  badges: [{ label: "ADC 5", tone: "analog-gpio" }] },
+	{ number: 28, pinLabel: "A6 / D21", stmPin: "PC4",  badges: [{ label: "ADC 6", tone: "analog-gpio" }] },
 	{
 		number: 29,
 		pinLabel: "A7 / D22",
+		stmPin: "PA5",
 		badges: [
 			{ label: "ADC 7", tone: "analog-gpio" },
 			{ label: "DAC OUT 2", tone: "analog-audio" },
@@ -43,6 +44,7 @@ export const DAISY_PINOUT_LEFT = [
 	{
 		number: 30,
 		pinLabel: "A8 / D23",
+		stmPin: "PA4",
 		badges: [
 			{ label: "ADC 8", tone: "analog-gpio" },
 			{ label: "DAC OUT 1", tone: "analog-audio" },
@@ -51,6 +53,7 @@ export const DAISY_PINOUT_LEFT = [
 	{
 		number: 31,
 		pinLabel: "A9 / D24",
+		stmPin: "PA1",
 		badges: [
 			{ label: "ADC 9", tone: "analog-gpio" },
 			{ label: "SAI2 MCLK", tone: "digital-audio-gpio" },
@@ -59,16 +62,18 @@ export const DAISY_PINOUT_LEFT = [
 	{
 		number: 32,
 		pinLabel: "A10 / D25",
+		stmPin: "PA0",
 		badges: [
 			{ label: "ADC 10", tone: "analog-gpio" },
 			{ label: "SAI2 SD B", tone: "digital-audio-gpio" },
 		],
 	},
-	{ number: 33, pinLabel: "D26", badges: [{ label: "SAI2 SD A", tone: "digital-audio-gpio" }] },
-	{ number: 34, pinLabel: "D27", badges: [{ label: "SAI2 FS", tone: "digital-audio-gpio" }] },
+	{ number: 33, pinLabel: "D26", stmPin: "PD11", badges: [{ label: "SAI2 SD A", tone: "digital-audio-gpio" }] },
+	{ number: 34, pinLabel: "D27", stmPin: "PG9",  badges: [{ label: "SAI2 FS", tone: "digital-audio-gpio" }] },
 	{
 		number: 35,
 		pinLabel: "A11 / D28",
+		stmPin: "PA2",
 		badges: [
 			{ label: "ADC 11", tone: "analog-gpio" },
 			{ label: "SAI2 SCK", tone: "digital-audio-gpio" },
@@ -77,6 +82,7 @@ export const DAISY_PINOUT_LEFT = [
 	{
 		number: 36,
 		pinLabel: "D29",
+		stmPin: "PB14",
 		badges: [
 			{ label: "USART1 Tx", tone: "peripheral-gpio" },
 			{ label: "USB D-", tone: "usb-gpio" },
@@ -85,6 +91,7 @@ export const DAISY_PINOUT_LEFT = [
 	{
 		number: 37,
 		pinLabel: "D30",
+		stmPin: "PB15",
 		badges: [
 			{ label: "USART1 Rx", tone: "peripheral-gpio" },
 			{ label: "USB D+", tone: "usb-gpio" },
@@ -104,6 +111,7 @@ export const DAISY_PINOUT_RIGHT = [
 	{
 		number: 15,
 		pinLabel: "D14",
+		stmPin: "PB7",
 		badges: [
 			{ label: "USART1 Rx", tone: "peripheral-gpio" },
 			{ label: "I2C4 SDA", tone: "peripheral-gpio" },
@@ -112,6 +120,7 @@ export const DAISY_PINOUT_RIGHT = [
 	{
 		number: 14,
 		pinLabel: "D13",
+		stmPin: "PB6",
 		badges: [
 			{ label: "USART1 Tx", tone: "peripheral-gpio" },
 			{ label: "I2C4 SCL", tone: "peripheral-gpio" },
@@ -120,6 +129,7 @@ export const DAISY_PINOUT_RIGHT = [
 	{
 		number: 13,
 		pinLabel: "D12",
+		stmPin: "PB9",
 		badges: [
 			{ label: "I2C1 SDA", tone: "peripheral-gpio" },
 			{ label: "UART4 Tx", tone: "peripheral-gpio" },
@@ -128,25 +138,28 @@ export const DAISY_PINOUT_RIGHT = [
 	{
 		number: 12,
 		pinLabel: "D11",
+		stmPin: "PB8",
 		badges: [
 			{ label: "I2C1 SCL", tone: "peripheral-gpio" },
 			{ label: "UART4 Rx", tone: "peripheral-gpio" },
 		],
 	},
-	{ number: 11, pinLabel: "D10", badges: [{ label: "SPI1 MOSI", tone: "peripheral-gpio" }] },
-	{ number: 10, pinLabel: "D9", badges: [{ label: "SPI1 MISO", tone: "peripheral-gpio" }] },
+	{ number: 11, pinLabel: "D10", stmPin: "PB5",  badges: [{ label: "SPI1 MOSI", tone: "peripheral-gpio" }] },
+	{ number: 10, pinLabel: "D9",  stmPin: "PB4",  badges: [{ label: "SPI1 MISO", tone: "peripheral-gpio" }] },
 	{
 		number: 9,
 		pinLabel: "D8",
+		stmPin: "PG11",
 		badges: [
 			{ label: "SPI1 SCK", tone: "peripheral-gpio" },
 			{ label: "SPDIFRX1", tone: "peripheral-gpio" },
 		],
 	},
-	{ number: 8, pinLabel: "D7", badges: [{ label: "SPI1 CS", tone: "peripheral-gpio" }] },
+	{ number: 8, pinLabel: "D7", stmPin: "PG10", badges: [{ label: "SPI1 CS", tone: "peripheral-gpio" }] },
 	{
 		number: 7,
 		pinLabel: "D6",
+		stmPin: "PC12",
 		badges: [
 			{ label: "SD CLK", tone: "peripheral-gpio" },
 			{ label: "USART5 Tx", tone: "peripheral-gpio" },
@@ -155,16 +168,18 @@ export const DAISY_PINOUT_RIGHT = [
 	{
 		number: 6,
 		pinLabel: "D5",
+		stmPin: "PD2",
 		badges: [
 			{ label: "SD CMD", tone: "peripheral-gpio" },
 			{ label: "USART5 Rx", tone: "peripheral-gpio" },
 		],
 	},
-	{ number: 5, pinLabel: "D4", badges: [{ label: "SD Data 0", tone: "peripheral-gpio" }] },
-	{ number: 4, pinLabel: "D3", badges: [{ label: "SD Data 1", tone: "peripheral-gpio" }] },
+	{ number: 5, pinLabel: "D4", stmPin: "PC8",  badges: [{ label: "SD Data 0", tone: "peripheral-gpio" }] },
+	{ number: 4, pinLabel: "D3", stmPin: "PC9",  badges: [{ label: "SD Data 1", tone: "peripheral-gpio" }] },
 	{
 		number: 3,
 		pinLabel: "D2",
+		stmPin: "PC10",
 		badges: [
 			{ label: "SD Data 2", tone: "peripheral-gpio" },
 			{ label: "USART3 Tx", tone: "peripheral-gpio" },
@@ -173,12 +188,13 @@ export const DAISY_PINOUT_RIGHT = [
 	{
 		number: 2,
 		pinLabel: "D1",
+		stmPin: "PC11",
 		badges: [
 			{ label: "SD Data 3", tone: "peripheral-gpio" },
 			{ label: "USART3 Rx", tone: "peripheral-gpio" },
 		],
 	},
-	{ number: 1, pinLabel: "D0", badges: [{ label: "USB ID", tone: "usb-gpio" }] },
+	{ number: 1, pinLabel: "D0", stmPin: "PB12", badges: [{ label: "USB ID", tone: "usb-gpio" }] },
 ];
 
 export const DAISY_SIGNAL_CARDS = [
