@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { readFileSync, readdirSync, existsSync } from "node:fs";
+import { readFileSync, readdirSync, existsSync, unlinkSync } from "node:fs";
 import http from "node:http";
 import net from "node:net";
 import { fileURLToPath } from "node:url";
@@ -946,6 +946,8 @@ async function handleClear() {
   _discoveryElfOverride = "";
   rpcQueue = Promise.resolve();
   emit({ type: "status", running: false, ts: Date.now() });
+  // Delete stale OLED frame file so the display shows NO SIGNAL after clear
+  try { unlinkSync(OLED_FRAME_PATH); } catch { /* ok if missing */ }
   const cr = await executeRenodeCommandSilent("Clear", null).catch(() => ({ status: "PASS" }));
   emitLog("system", `Clear: ${cr.status === "PASS" ? "OK" : (cr.error || "done")}`);
   await sleep(300);

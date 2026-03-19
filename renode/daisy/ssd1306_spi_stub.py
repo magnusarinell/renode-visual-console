@@ -7,29 +7,28 @@
 #   0x14  SR   - TXP|EOT|TXC always set so HAL never busy-waits
 #   0x20  TXDR - each byte written here is captured
 #
-# SSD1306 wiring (libDaisy default):
-#   DC/RS = PG10 -> GPIOG ODR bit 10 at 0x58021814
-#   HIGH = pixel data, LOW = command
-#
-# Protocol (libDaisy OledDisplay::Update()):
+# Protocol (libDaisy OledDisplay::Update(), page-addressing mode):
 #   For each page p 0..7:
-#     DC=LOW  0xB0|p  set page
-#     DC=LOW  0x00    col low = 0
-#     DC=LOW  0x10    col high = 0
-#     DC=HIGH 128 bytes pixel data
+#     0xB0|p   set-page command
+#     0x00     set column low nibble  = 0
+#     0x10     set column high nibble = 0
+#     [128 bytes of pixel data]
 #
-# On completion of 8 pages the 1024-byte framebuffer is written to
-# {tempdir}/renode_oled_frame.bin .  The backend reads that file.
+# State machine: after 0xB0|p we count 2 more command bytes then switch to
+# data-collection mode for 128 bytes.  No GPIO / DC-pin read needed.
+#
+# After page 7 the complete 1024-byte framebuffer is flushed to
+# {tempdir}/renode_oled_frame.bin for the backend to read.
 
-GPIOG_ODR = 0x58021814
 _SR_READY = 0x0000100A
 
 try:
     _spi_page
 except NameError:
-    _spi_page = 0
-    _spi_col  = 0
-    _spi_fb   = [0] * 1024
+    _spi_page     = 0
+    _spi_col      = 0
+    _spi_preamble = -1   # -1=idle/cmd  >0=eating preamble bytes  0=data phase
+    _spi_fb       = [0] * 1024
     import tempfile as _tf, os as _os
     _FRAME_PATH = _os.path.join(_tf.gettempdir(), 'renode_oled_frame.bin')
 
@@ -39,12 +38,12 @@ if request.IsRead:
 elif request.IsWrite and request.Offset == 0x20:
     byte = request.Value & 0xFF
 
-    try:
-        dc_high = bool((self.Machine.SystemBus.ReadDoubleWord(GPIOG_ODR) >> 10) & 1)
-    except Exception:
-        dc_high = not ((byte & 0xF8) == 0xB0 or byte < 0x20)
+    if _spi_preamble > 0:
+        # Eating the two per-page command bytes (0x00, 0x10)
+        _spi_preamble -= 1
 
-    if dc_high:
+    elif _spi_preamble == 0:
+        # Data phase: collect 128 pixel bytes for current page
         idx = _spi_page * 128 + _spi_col
         if 0 <= idx < 1024:
             _spi_fb[idx] = byte
@@ -59,9 +58,11 @@ elif request.IsWrite and request.Offset == 0x20:
                 except Exception:
                     pass
             _spi_page = (_spi_page + 1) % 8
+            _spi_preamble = -1  # back to command/idle state
+
     else:
+        # Idle/command state (_spi_preamble == -1)
         if (byte & 0xF8) == 0xB0:
             _spi_page = byte & 0x07
             _spi_col  = 0
-        elif byte == 0x00 or byte == 0x10:
-            _spi_col = 0
+            _spi_preamble = 2   # still need 0x00 and 0x10 before data
