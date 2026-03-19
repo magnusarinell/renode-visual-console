@@ -26,7 +26,9 @@ export default function App() {
   const [oledFrame, setOledFrame]             = useState(null);
   const [elfFiles, setElfFiles]               = useState([]);
   const [selectedElf, setSelectedElf]         = useState("");
-  const [pcValue, setPcValue]                 = useState(null);
+  const [discoveryElfs, setDiscoveryElfs]     = useState([]);
+  const [selectedDiscoveryElf, setSelectedDiscoveryElf] = useState("");
+  const [pcLog, setPcLog]                     = useState([]);
   const [pinStatesByBoard, setPinStatesByBoard] = useState(() =>
     Object.fromEntries(BOARDS.map((b) => [b.id, buildPinMap()]))
   );
@@ -50,16 +52,20 @@ export default function App() {
     onStatus: (running) => setSimRunning(running),
     onHello: (msg) => {
       if (Array.isArray(msg.elf_list)) setElfFiles(msg.elf_list);
+      if (Array.isArray(msg.discovery_elf_list)) setDiscoveryElfs(msg.discovery_elf_list);
     },
     onOledFrame: (_machine, data) => setOledFrame(data),
-    onPcValue: (_machine, pc) => setPcValue(pc),
+    onPcValue: (_machine, pc) => setPcLog((prev) => [
+      ...prev.slice(-199),
+      { id: crypto.randomUUID(), pc, ts: Date.now() },
+    ]),
     onScriptLoaded: (scenario) => {
       setActiveScript(scenario);
       // Reset pin levels on scenario switch
       setOutputLevel(null);
       setInputLevel(null);
       setLedLevel(null);
-      setPcValue(null);
+      setPcLog([]);
       if (scenario !== "daisy") setOledFrame(null);
     },
     onPinState: (machine, pin, level) => {
@@ -110,6 +116,10 @@ export default function App() {
     [logs]
   );
   const uartHubLogs = useMemo(() => logs.filter((e) => e.stream === "hub"), [logs]);
+  const allUartLogs = useMemo(
+    () => logs.filter((e) => e.stream === "uart" || e.stream === "hub"),
+    [logs]
+  );
   const systemLogs  = useMemo(() => logs.filter((e) => e.stream === "system"), [logs]);
   const monitorLogs = useMemo(
     () => logs.filter((e) => e.stream !== "uart" && e.stream !== "system" && e.stream !== "hub"),
@@ -174,15 +184,27 @@ export default function App() {
   }
 
   function handleActivate() {
-    if (view === "daisy") {
-      if (selectedElf) {
-        send({ type: "select_binary", elf: selectedElf });
-      } else {
-        send({ type: "load_script", scenario: "daisy" });
-      }
+    const elf = view === "daisy" ? selectedElf : selectedDiscoveryElf;
+    if (elf) {
+      send({ type: "select_binary", elf, scenario: view });
     } else {
-      send({ type: "load_script", scenario: "discovery" });
+      send({ type: "load_script", scenario: view });
     }
+  }
+
+  function handleClear() {
+    send({ type: "clear" });
+    setLogs([]);
+    setSelectedElf("");
+    setSelectedDiscoveryElf("");
+    setPcLog([]);
+    setOledFrame(null);
+    setActiveScript("none");
+    setSimRunning(false);
+    setOutputLevel(null);
+    setInputLevel(null);
+    setLedLevel(null);
+    setPinStatesByBoard(Object.fromEntries(BOARDS.map((b) => [b.id, buildPinMap()])));
   }
 
   function onDaisyInjectLevel(stmPin, level) {
@@ -224,6 +246,9 @@ export default function App() {
 
   // ── Status label ───────────────────────────────────────────────────────────
 
+  const currentElfList = view === "daisy" ? elfFiles : discoveryElfs;
+  const currentElf     = view === "daisy" ? selectedElf : selectedDiscoveryElf;
+
   const statusLabel = useMemo(() => {
     if (socketState !== "connected") return "Renode: Disconnected";
     return simRunning ? "Renode: Running" : "Renode: Stopped";
@@ -238,6 +263,7 @@ export default function App() {
           <p className="kicker">Renode Visual Console</p>
           <div className="heading-row">
             <h1>Board Visualizer</h1>
+            <div className="control-bar">
             <div className="view-toggle">
               <button
                 className={`view-btn${view === "discovery" ? " active" : ""}`}
@@ -247,12 +273,37 @@ export default function App() {
                 className={`view-btn${view === "daisy" ? " active" : ""}`}
                 onClick={() => setView("daisy")}
               >Daisy Seed</button>
-              <button
-                className="view-btn"
-                disabled={!simRunning || (view === "daisy" && elfFiles.length > 0 && !selectedElf)}
-                onClick={handleActivate}
-                title={view === "daisy" && elfFiles.length > 0 && !selectedElf ? "Select firmware first" : `Activate ${view} scenario`}
-              >Activate</button>
+            </div>
+            {currentElfList.length > 0 && (
+              <select
+                className="elf-select"
+                value={currentElf}
+                onChange={(e) => view === "daisy"
+                  ? setSelectedElf(e.target.value)
+                  : setSelectedDiscoveryElf(e.target.value)
+                }
+                title="Select firmware binary"
+              >
+                <option value="" disabled>Select firmware…</option>
+                {currentElfList.map((elf) => (
+                  <option key={elf} value={elf}>
+                    {elf.split("/").pop().replace(".elf", "")}
+                  </option>
+                ))}
+              </select>
+            )}
+            <button
+              className="activate-btn"
+              disabled={socketState !== "connected" || (currentElfList.length > 0 && !currentElf)}
+              onClick={handleActivate}
+              title={currentElfList.length > 0 && !currentElf ? "Select firmware first" : `Activate ${view} scenario`}
+            >Activate</button>
+            <button
+              className="clear-btn"
+              disabled={socketState !== "connected"}
+              onClick={handleClear}
+              title="Clear simulation and reset state"
+            >Clear</button>
             </div>
           </div>
           <p className="subtitle">
@@ -263,24 +314,6 @@ export default function App() {
         </div>
         <div className="pill-row">
           <span className={`pill ${simRunning ? "ok" : "warn"}`}>{statusLabel}</span>
-          {view === "daisy" && activeScript === "daisy" && pcValue && (
-            <span className="pill" style={{fontFamily: 'monospace', fontSize: '0.7rem', letterSpacing: '0.04em'}}>PC {pcValue}</span>
-          )}
-          {view === "daisy" && elfFiles.length > 0 && (
-            <select
-              className="daisy-elf-select"
-              value={selectedElf}
-              onChange={(e) => setSelectedElf(e.target.value)}
-              title="Select firmware binary"
-            >
-              <option value="" disabled>Select firmware…</option>
-              {elfFiles.map((elf) => (
-                <option key={elf} value={elf}>
-                  {elf.split("/").pop().replace(".elf", "")}
-                </option>
-              ))}
-            </select>
-          )}
         </div>
       </section>
 
@@ -288,8 +321,8 @@ export default function App() {
         <LogPanel
           systemLogs={systemLogs}
           monitorLogs={monitorLogs}
-          uartHubLogs={uartHubLogs}
-          daisyUartLogs={daisyUartLogs}
+          allUartLogs={allUartLogs}
+          pcLog={pcLog}
           activeTab={activeLogTab}
           onTabChange={setActiveLogTab}
         />

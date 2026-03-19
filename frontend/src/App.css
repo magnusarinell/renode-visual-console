@@ -64,7 +64,7 @@ h1 {
 .heading-row {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 8rem;
 }
 
 .view-toggle {
@@ -1224,6 +1224,86 @@ button:hover {
 
 .log-line.error {
   color: #ff9f9f;
+}
+
+/* ─── Control bar (board toggle + firmware selector + activate + clear) ────── */
+.control-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.elf-select {
+  appearance: none;
+  background: #1a2530;
+  color: #c8d8e0;
+  border: 1px solid #2e4450;
+  border-radius: 6px;
+  padding: 0.3rem 0.8rem;
+  font-size: 0.78rem;
+  cursor: pointer;
+  outline: none;
+}
+
+.elf-select:hover:not(:disabled) {
+  border-color: #5a9ab0;
+}
+
+.elf-select:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.activate-btn {
+  border-radius: 6px;
+  border: 1px solid #3ca487;
+  background: linear-gradient(160deg, #0d5641, #083128);
+  color: #89f0b9;
+  padding: 0.3rem 0.9rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  letter-spacing: 0.03em;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.activate-btn:hover:not(:disabled) {
+  border-color: #65d4ab;
+  background: linear-gradient(160deg, #165a45, #0d4030);
+}
+
+.activate-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.clear-btn {
+  border-radius: 6px;
+  border: 1px solid #7a3030;
+  background: linear-gradient(160deg, #3d1515, #200a0a);
+  color: #f0a0a0;
+  padding: 0.3rem 0.9rem;
+  font-size: 0.82rem;
+  cursor: pointer;
+  letter-spacing: 0.03em;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.clear-btn:hover:not(:disabled) {
+  border-color: #c04040;
+  background: linear-gradient(160deg, #5a1e1e, #321010);
+}
+
+.clear-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.log-plain-ts {
+  color: #3a5a70;
+  margin-right: 0.6em;
+  font-size: 0.70rem;
 }
 
 @media (max-width: 860px) {

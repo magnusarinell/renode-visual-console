@@ -18,8 +18,8 @@
 #     DC=LOW  0x10    col high = 0
 #     DC=HIGH 128 bytes pixel data
 #
-# On completion of 8 pages the framebuffer (1024 bytes) is stored in
-# sys.modules['renode_oled'].frame so the backend can read it.
+# On completion of 8 pages the 1024-byte framebuffer is written to
+# {tempdir}/renode_oled_frame.bin .  The backend reads that file.
 
 GPIOG_ODR = 0x58021814
 _SR_READY = 0x0000100A
@@ -30,6 +30,8 @@ except NameError:
     _spi_page = 0
     _spi_col  = 0
     _spi_fb   = [0] * 1024
+    import tempfile as _tf, os as _os
+    _FRAME_PATH = _os.path.join(_tf.gettempdir(), 'renode_oled_frame.bin')
 
 if request.IsRead:
     request.Value = _SR_READY if request.Offset == 0x14 else 0
@@ -51,15 +53,9 @@ elif request.IsWrite and request.Offset == 0x20:
             _spi_col = 0
             if _spi_page == 7:
                 try:
-                    import sys as _sys
-                    import types as _types
-                    if 'renode_oled' not in _sys.modules:
-                        _mod = _types.ModuleType('renode_oled')
-                        _mod.frame = None
-                        _mod.seq = 0
-                        _sys.modules['renode_oled'] = _mod
-                    _sys.modules['renode_oled'].frame = list(_spi_fb)
-                    _sys.modules['renode_oled'].seq = (_sys.modules['renode_oled'].seq + 1) & 0xFFFF
+                    _f = open(_FRAME_PATH, 'wb')
+                    _f.write(bytearray(_spi_fb))
+                    _f.close()
                 except Exception:
                     pass
             _spi_page = (_spi_page + 1) % 8

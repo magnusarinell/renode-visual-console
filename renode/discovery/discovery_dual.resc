@@ -1,17 +1,18 @@
 # UART Hub for inter-board communication
+$elf ?= $ORIGIN/../../zephyr/build/zephyr/zephyr.elf
 emulation CreateUARTHub "uartHub"
 
 mach create "board_0"
 machine LoadPlatformDescription @platforms/boards/stm32f4_discovery-kit.repl
 showAnalyzer sysbus.usart3
-sysbus LoadELF $ORIGIN/../../zephyr/build/zephyr/zephyr.elf
+sysbus LoadELF $elf
 # Connect USART2 to UART Hub for inter-board communication
 connector Connect sysbus.usart2 uartHub
 
 mach create "board_1"
 machine LoadPlatformDescription @platforms/boards/stm32f4_discovery-kit.repl
 showAnalyzer sysbus.usart3
-sysbus LoadELF $ORIGIN/../../zephyr/build/zephyr/zephyr.elf
+sysbus LoadELF $elf
 # Connect USART2 to UART Hub for inter-board communication
 connector Connect sysbus.usart2 uartHub
 

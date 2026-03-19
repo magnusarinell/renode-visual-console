@@ -1,13 +1,11 @@
-import { BOARDS } from "../constants";
-
 const TAB_LABELS = {
   system:  "Web Server",
   monitor: "Monitor",
-  hub:     "UART Hub",
   uart:    "UART",
+  pc:      "PC",
 };
 
-export function LogPanel({ systemLogs, monitorLogs, uartHubLogs, daisyUartLogs = [], activeTab, onTabChange }) {
+export function LogPanel({ systemLogs, monitorLogs, allUartLogs = [], pcLog = [], activeTab, onTabChange }) {
   return (
     <aside className="logs-panel">
       <div className="log-subtabs">
@@ -32,14 +30,17 @@ export function LogPanel({ systemLogs, monitorLogs, uartHubLogs, daisyUartLogs =
             <span className="log-plain-tag">{entry.stream}</span>{entry.line}
           </div>
         ))}
-        {activeTab === "hub" && uartHubLogs.map((entry) => (
+        {activeTab === "uart" && allUartLogs.map((entry) => (
           <div className="log-plain-line" key={entry.id}>
-            <span className="log-plain-board">[{entry.machine || BOARDS[0].id}]</span>{entry.line}
+            {entry.machine && <span className="log-plain-board">[{entry.machine}]</span>}
+            {entry.stream === "hub" && <span className="log-plain-tag">hub</span>}
+            {entry.line}
           </div>
         ))}
-        {activeTab === "uart" && daisyUartLogs.map((entry) => (
+        {activeTab === "pc" && pcLog.map((entry) => (
           <div className="log-plain-line" key={entry.id}>
-            {entry.line}
+            <span className="log-plain-ts">{new Date(entry.ts).toLocaleTimeString()}</span>
+            {entry.pc}
           </div>
         ))}
       </div>

@@ -4,6 +4,7 @@ import http from "node:http";
 import net from "node:net";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import os from "node:os";
 import { WebSocketServer } from "ws";
 
 const PORT = Number(process.env.RENODE_BRIDGE_PORT || 8787);
@@ -79,26 +80,32 @@ function scanDaisyElfs() {
   }
 }
 
+function scanDiscoveryElfs() {
+  const buildDir = path.join(repoRoot, "zephyr", "build", "zephyr");
+  if (!existsSync(buildDir)) return [];
+  try {
+    return readdirSync(buildDir)
+      .filter((f) => f === "zephyr.elf")
+      .map((f) => `zephyr/build/zephyr/${f}`);
+  } catch {
+    return [];
+  }
+}
+
 // ─── OLED framebuffer poll loop (Daisy scenario only) ────────────────────────
 let _oledPollTimer = null;
+const OLED_FRAME_PATH = path.join(os.tmpdir(), "renode_oled_frame.bin");
 
 async function pollOledFrame() {
   if (!renodeReady || !renodeRunning || activeScenario !== "daisy") return;
   const machine = activeMachines[0];
   if (!machine) return;
   try {
-    // Read framebuffer from sys.modules['renode_oled'].frame set by ssd1306_spi_stub.py
-    const cmd =
-      "python import sys as _s,base64 as _b;" +
-      "_m=_s.modules.get('renode_oled');" +
-      "_fb=_m.frame if _m and _m.frame else None;" +
-      "_r=_b.b64encode(bytearray(_fb)) if _fb else None;" +
-      "print(_r if isinstance(_r,str) else (_r.decode() if _r else ''))";
-    const result = await executeRenodeCommandSilent(cmd, machine);
-    const raw = (result.return || result.output || "").trim();
-    if (raw.length >= 1000) {
-      emit({ type: "oled_frame", machine, data: raw, ts: Date.now() });
-    }
+    if (!existsSync(OLED_FRAME_PATH)) return;
+    const buf = readFileSync(OLED_FRAME_PATH);
+    if (buf.length < 1024) return;
+    const raw = buf.slice(0, 1024).toString("base64");
+    emit({ type: "oled_frame", machine, data: raw, ts: Date.now() });
   } catch { /* ignore transient errors */ }
 }
 
@@ -474,6 +481,7 @@ async function executeRenodeScript(scriptPath) {
 // If a daisy ELF override is set (env or runtime), tell Renode about it
 // BEFORE the .resc script is loaded.  The script uses $elf ?= <default>.
 let _daisyElfOverride = DAISY_ELF;
+let _discoveryElfOverride = "";
 
 async function setDaisyElfVariable(elfPath) {
   const elf = elfPath || _daisyElfOverride;
@@ -879,6 +887,11 @@ async function handleLoadScript(scenario) {
   emitLog("system", `Loading script: ${newScriptPosix}`);
 
   await setDaisyElfVariable();
+  if (scenario === "discovery" && _discoveryElfOverride) {
+    const _elfPosix = path.resolve(repoRoot, _discoveryElfOverride).replace(/\\/g, "/");
+    emitLog("system", `Setting Renode $elf = ${_elfPosix}`);
+    await callXmlRpc("ExecuteCommand", [`$elf=@${_elfPosix}`]);
+  }
   const result = await executeRenodeScript(newScriptPosix);
   emitLog("system", `ExecuteScript result: ${result.status}${result.error ? " — " + result.error : ""}`);
   if (result.status === "FAIL") {
@@ -911,6 +924,33 @@ async function handleLoadScript(scenario) {
   }
   if (activeScenario === "daisy") startOledPollLoop();
   if (activeScenario === "daisy") startPcPollLoop();
+}
+
+async function handleClear() {
+  emitLog("system", "Clearing simulation\u2026");
+  stopUartDrainLoops();
+  stopHubDrainLoops();
+  stopGpioPushLoops();
+  stopOledPollLoop();
+  stopPcPollLoop();
+  uartTesterReadyByMachine.clear();
+  uartTesterIdByMachine.clear();
+  hubTesterReadyByMachine.clear();
+  hubTesterIdByMachine.clear();
+  _gpioPrevState = {};
+  renodeRunning = false;
+  renodeReady = false;
+  activeMachines = [];
+  activeScenario = "none";
+  _daisyElfOverride = DAISY_ELF;
+  _discoveryElfOverride = "";
+  rpcQueue = Promise.resolve();
+  emit({ type: "status", running: false, ts: Date.now() });
+  const cr = await executeRenodeCommandSilent("Clear", null).catch(() => ({ status: "PASS" }));
+  emitLog("system", `Clear: ${cr.status === "PASS" ? "OK" : (cr.error || "done")}`);
+  await sleep(300);
+  renodeReady = true;
+  emit({ type: "cleared", ts: Date.now() });
 }
 
 const clients = new Set();
@@ -1140,7 +1180,7 @@ wss.on("connection", (ws) => {
   console.log("WebSocket client connected");
 
   // Send current state and buffered log history before joining broadcast set
-  ws.send(JSON.stringify({ type: "hello", running: renodeRunning, scenario: activeScenario, elf_list: scanDaisyElfs(), ts: Date.now() }));
+  ws.send(JSON.stringify({ type: "hello", running: renodeRunning, scenario: activeScenario, elf_list: scanDaisyElfs(), discovery_elf_list: scanDiscoveryElfs(), ts: Date.now() }));
   for (const entry of logBuffer) {
     if (ws.readyState === 1) ws.send(JSON.stringify(entry));
   }
@@ -1194,9 +1234,18 @@ wss.on("connection", (ws) => {
       }
 
       if (msg.type === "select_binary" && typeof msg.elf === "string") {
-        _daisyElfOverride = msg.elf;
-        handleLoadScript("daisy").catch((err) =>
+        const _selScenario = msg.scenario === "discovery" ? "discovery" : "daisy";
+        if (_selScenario === "discovery") _discoveryElfOverride = msg.elf;
+        else _daisyElfOverride = msg.elf;
+        handleLoadScript(_selScenario).catch((err) =>
           emitLog("system", `select_binary error: ${err.message}`)
+        );
+        return;
+      }
+
+      if (msg.type === "clear") {
+        handleClear().catch((err) =>
+          emitLog("system", `Clear error: ${err.message}`)
         );
         return;
       }
