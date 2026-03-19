@@ -7,9 +7,10 @@
 //   led   → PC7  (red LED, GPIO_ACTIVE_HIGH)
 
 export const DAISY_MACHINE    = "daisy_0";
-export const DAISY_OUTPUT_PIN = "PA15";   // toggled by firmware on each button press
-export const DAISY_INPUT_PIN  = "PB3";    // user button (physical LOW = pressed)
-export const DAISY_LED_PIN    = "PC7";    // onboard red LED (Blink example)
+export const DAISY_OUTPUT_PIN  = "PA15";   // toggled by firmware on each button press
+export const DAISY_INPUT_PIN   = "PB3";    // sw0 user button (physical LOW = pressed)
+export const DAISY_LED_PIN     = "PC7";    // onboard red LED (Blink / Button examples)
+export const DAISY_BUTTON_PIN  = "PA2";    // external breadboard button (Button.cpp, pin 35 → GND pin 40)
 
 export const DAISY_PIN_LEGEND = [
 	{ tone: "analog-audio", label: "Analog Audio" },

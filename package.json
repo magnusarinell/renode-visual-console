@@ -4,10 +4,11 @@
   "version": "0.1.0",
   "scripts": {
     "deps": "npm install && npm --prefix backend install && npm --prefix frontend install",
-    "build": "bash scripts/build_disco.sh && bash scripts/build_daisy.sh seed/Blink && bash scripts/build_daisy.sh seed/OLED",
+    "build": "bash scripts/build_disco.sh && bash scripts/build_daisy.sh seed/Blink && bash scripts/build_daisy.sh seed/OLED && bash scripts/build_daisy.sh seed/Button",
     "build:daisy": "bash scripts/build_daisy.sh",
     "build:daisy:blink": "bash scripts/build_daisy.sh seed/Blink",
     "build:daisy:oled": "bash scripts/build_daisy.sh seed/OLED",
+    "build:daisy:button": "bash scripts/build_daisy.sh seed/Button",
     "setup:daisy": "bash scripts/setup_libdaisy.sh",
     "start:renode": "renode --robot-server-port 55555 --disable-gui --hide-monitor --hide-log --plain",
     "start:backend": "cross-env RENODE_ROBOT_PORT=55555 npm --prefix backend run start",

@@ -5,9 +5,10 @@ import {
   BOARDS, ALL_TRACKED_PINS, MAX_LOG_LINES,
   buildPinMap, firmwareOutputsFor, isGpioPin,
 } from "./constants";
-import { DAISY_MACHINE, DAISY_INPUT_PIN, DAISY_OUTPUT_PIN, DAISY_LED_PIN } from "./daisy-constants";
+import { DAISY_MACHINE, DAISY_INPUT_PIN, DAISY_OUTPUT_PIN, DAISY_LED_PIN, DAISY_BUTTON_PIN } from "./daisy-constants";
 import { useWebSocket } from "./hooks/useWebSocket";
 import { BoardCard } from "./components/BoardCard";
+import { BreadboardButton } from "./components/daisy/BreadboardButton";
 import { DaisySeedBoard } from "./components/daisy/DaisySeedBoard";
 import { OledDisplay } from "./components/daisy/OledDisplay";
 import { LogPanel } from "./components/LogPanel";
@@ -173,14 +174,12 @@ export default function App() {
     }
   }
 
-  function handleButtonDown() {
-    // Use pulse op so backend advances simulation time between LOW/HIGH,
-    // letting firmware detect the button press within one RPC chain.
-    send({ type: "gpio", op: "pulse", machine: DAISY_MACHINE, pin: DAISY_INPUT_PIN });
+  function handleBreadboardDown() {
+    send({ type: "gpio", op: "write", machine: DAISY_MACHINE, pin: DAISY_BUTTON_PIN, level: false });
   }
 
-  function handleButtonUp() {
-    // No-op: pulse is self-contained (LOW + sim advance + HIGH)
+  function handleBreadboardUp() {
+    send({ type: "gpio", op: "write", machine: DAISY_MACHINE, pin: DAISY_BUTTON_PIN, level: true });
   }
 
   function handleActivate() {
@@ -332,10 +331,7 @@ export default function App() {
             {view === "daisy" ? (
               <DaisySeedBoard
                 outputLevel={outputLevel}
-                inputLevel={inputLevel}
                 ledLevel={ledLevel}
-                onButtonDown={handleButtonDown}
-                onButtonUp={handleButtonUp}
                 logs={daisyUartLogs}
                 onClearLogs={() => setLogs((prev) => prev.filter((e) => !(e.stream === "uart" && e.machine === DAISY_MACHINE)))}
                 selectedPin={selectedDaisyPin}
@@ -343,6 +339,7 @@ export default function App() {
                 onInjectLevel={onDaisyInjectLevel}
                 onPulsePin={onDaisyPulsePin}
                 oledElement={<OledDisplay frame={oledFrame} />}
+                breadboardElement={<BreadboardButton onDown={handleBreadboardDown} onUp={handleBreadboardUp} />}
               />
             ) : (
               <div className="boards-tab-content">

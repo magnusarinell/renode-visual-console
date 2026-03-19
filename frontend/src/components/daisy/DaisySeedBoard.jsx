@@ -1,4 +1,3 @@
-import { useRef } from "react";
 import "./Daisy.css";
 import {
   DAISY_INPUT_PIN,
@@ -54,30 +53,15 @@ const PINS_B = DAISY_PINOUT_LEFT.slice().sort((a, b) => a.number - b.number);  /
 const PAIRED_PINS = PINS_A.flatMap((p, i) => [p, PINS_B[i]]);
 
 export function DaisySeedBoard({
-  inputLevel,
   ledLevel,
-  onButtonDown,
-  onButtonUp,
   logs = [],
   onClearLogs,
   selectedPin,
   onInjectLevel,
   onPulsePin,
   oledElement,
+  breadboardElement,
 }) {
-  const heldRef = useRef(false);
-
-  function handlePointerDown(e) {
-    heldRef.current = true;
-    onButtonDown(e);
-  }
-  function handlePointerUp(e) {
-    if (!heldRef.current) return;
-    heldRef.current = false;
-    onButtonUp(e);
-  }
-
-  const btnPressed      = inputLevel === false;
   const activeSignalPin = selectedPin ?? DAISY_INPUT_PIN;
   const selectedSignal  = DAISY_SIGNAL_CARDS.find((s) => s.stmPin === activeSignalPin)
     ?? DAISY_SIGNAL_CARDS[0];
@@ -127,20 +111,6 @@ export function DaisySeedBoard({
 
               {/* Audio + SDRAM chip — no text */}
               <div className="daisy-chip daisy-chip-bottom" aria-hidden="true" />
-
-              {/* USER button */}
-              <div className="daisy-user-control">
-                <span className="daisy-user-label">USER</span>
-                <button
-                  className={`daisy-user-button${btnPressed ? " active" : ""}`}
-                  onPointerDown={handlePointerDown}
-                  onPointerUp={handlePointerUp}
-                  onPointerLeave={handlePointerUp}
-                  title="USER button - PB3 (GPIO_ACTIVE_LOW)"
-                  type="button"
-                />
-                <span className="daisy-user-meta">PB3</span>
-              </div>
 
               {/* Onboard LED + USB connector at board bottom */}
               <div className="daisy-bottom-row">
@@ -209,7 +179,14 @@ export function DaisySeedBoard({
         />
       </div>
 
-      {oledElement}
+      {oledElement && breadboardElement ? (
+        <div className="daisy-center-column">
+          {oledElement}
+          {breadboardElement}
+        </div>
+      ) : (
+        oledElement || breadboardElement || null
+      )}
 
       <div className="daisy-info-column">
         <div className="daisy-badge-panel">
