@@ -22,6 +22,13 @@ qspi_stub: Python.PythonPeripheral @ sysbus 0x52005000
     size: 0x400
     filename: "C:/git/renode-visual-console/renode/daisy/stm32h7_qspi_stub.py"
 
+// ADC1/ADC2 master-slave stub — replaces STM32F0_ADC whose register layout
+// is incompatible with the STM32H7 HAL (CHSELR vs PCSEL/SQR).
+// Without this, firmware hangs in HAL_ADCEx_Calibration_Start().
+adc_stub: Python.PythonPeripheral @ sysbus 0x40022000
+    size: 0x400
+    filename: "C:/git/renode-visual-console/renode/daisy/stm32h7_adc_stub.py"
+
 // SPI1 stub — intercepts SSD1306 traffic and writes framebuffer to SRAM4
 spi1_stub: Python.PythonPeripheral @ sysbus 0x40013000
     size: 0x400

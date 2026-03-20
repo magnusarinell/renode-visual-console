@@ -12,7 +12,7 @@ import "./Daisy.css";
  *   Byte index = page * 128 + col
  *   Bit 0 (LSB) = top pixel of the 8-row page; bit 7 = bottom pixel.
  */
-export function OledDisplay({ frame }) {
+export function OledDisplay({ frame, small = false }) {
   const canvasRef = useRef(null);
 
   useEffect(() => {
@@ -72,7 +72,7 @@ export function OledDisplay({ frame }) {
         ref={canvasRef}
         width={128}
         height={64}
-        className="daisy-oled-canvas"
+        className={`daisy-oled-canvas${small ? " daisy-oled-canvas--small" : ""}`}
         aria-label="SSD1306 OLED display"
       />
     </div>

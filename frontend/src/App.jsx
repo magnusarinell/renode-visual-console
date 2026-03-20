@@ -1,14 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 import "./components/daisy/Daisy.css";
 import {
   BOARDS, ALL_TRACKED_PINS, MAX_LOG_LINES,
   buildPinMap, firmwareOutputsFor, isGpioPin,
 } from "./constants";
-import { DAISY_MACHINE, DAISY_INPUT_PIN, DAISY_OUTPUT_PIN, DAISY_LED_PIN, DAISY_BUTTON_PIN } from "./daisy-constants";
+import { DAISY_MACHINE, DAISY_INPUT_PIN, DAISY_OUTPUT_PIN, DAISY_LED_PIN, DAISY_BUTTON_PIN, DAISY_KNOB_PIN } from "./daisy-constants";
 import { useWebSocket } from "./hooks/useWebSocket";
 import { BoardCard } from "./components/BoardCard";
-import { BreadboardButton } from "./components/daisy/BreadboardButton";
+import { BreadboardPanel } from "./components/daisy/BreadboardPanel"; // eslint-disable-line no-unused-vars
 import { DaisySeedBoard } from "./components/daisy/DaisySeedBoard";
 import { OledDisplay } from "./components/daisy/OledDisplay";
 import { LogPanel } from "./components/LogPanel";
@@ -26,6 +26,9 @@ export default function App() {
   const [ledLevel, setLedLevel]               = useState(null);  // daisy PC7
   const [oledFrame, setOledFrame]             = useState(null);
   const [daisyPinStates, setDaisyPinStates]   = useState({});
+  const [pa2LedDuty, setPa2LedDuty]           = useState(0);
+  const pa2SamplesRef                          = useRef([]);
+  const bbModeRef                              = useRef("knob");
   const [elfFiles, setElfFiles]               = useState([]);
   const [selectedElf, setSelectedElf]         = useState("");
   const [discoveryElfs, setDiscoveryElfs]     = useState([]);
@@ -47,6 +50,17 @@ export default function App() {
   const [voltageByBoard, setVoltageByBoard]   = useState(() =>
     Object.fromEntries(BOARDS.map((b) => [b.id, {}]))
   );
+
+  // ── Breadboard mode: derived from selected ELF filename ─────────────────
+  // "knob"   → pot + LED indicator (PA2 is firmware output)
+  // "button" → tact switch         (PA2 is firmware input)
+  const bbMode = (() => {
+    const name = (selectedElf || "").toLowerCase();
+    if (name.includes("knob"))   return "knob";
+    if (name.includes("button")) return "button";
+    return "knob"; // default
+  })();
+  bbModeRef.current = bbMode;
 
   // ── WebSocket ──────────────────────────────────────────────────────────────
 
@@ -70,9 +84,16 @@ export default function App() {
       setOledFrame(null);
       setLogs([]);
       setDaisyPinStates({});
-      // Initialize PA2 HIGH (pull-up, button not pressed) so firmware doesn't
-      // read a spurious LOW on startup before any override has been established.
-      send({ type: "gpio", op: "write", machine: DAISY_MACHINE, pin: DAISY_BUTTON_PIN, level: true });
+      pa2SamplesRef.current = [];
+      setPa2LedDuty(0);
+      if (bbModeRef.current === "button") {
+        // PA2 is an input in Button firmware — initialise pull-up so firmware
+        // reads HIGH (not pressed) before any physical interaction.
+        send({ type: "gpio", op: "write", machine: DAISY_MACHINE, pin: DAISY_BUTTON_PIN, level: true });
+      } else {
+        // Initialize ADC channel to 0 V so firmware reads silence at startup.
+        send({ type: "analog", machine: DAISY_MACHINE, pin: DAISY_KNOB_PIN, voltage: 0 });
+      }
     },
     onPinState: (machine, pin, level) => {
       if (machine === DAISY_MACHINE) {
@@ -80,6 +101,16 @@ export default function App() {
         if (pin === DAISY_INPUT_PIN)  setInputLevel(level);
         if (pin === DAISY_LED_PIN)    setLedLevel(level);
         setDaisyPinStates((prev) => ({ ...prev, [pin]: level }));
+        // PA2 = software-PWM LED output in knob mode. Always-emitted by backend
+        // (not change-filtered). Build a rolling average over the last 20 samples
+        // to approximate duty cycle. Skip in button mode — PA2 is an input there.
+        if (pin === DAISY_BUTTON_PIN && bbModeRef.current === "knob") {
+          const w = pa2SamplesRef.current;
+          w.push(level ? 1 : 0);
+          if (w.length > 20) w.shift();
+          const avg = w.reduce((a, b) => a + b, 0) / w.length;
+          setPa2LedDuty(avg);
+        }
         return;
       }
       setPinStatesByBoard((prev) => {
@@ -188,6 +219,10 @@ export default function App() {
     send({ type: "gpio", op: "write", machine: DAISY_MACHINE, pin: DAISY_BUTTON_PIN, level: true });
   }
 
+  function handleKnobRelease(v) {
+    send({ type: "analog", machine: DAISY_MACHINE, pin: DAISY_KNOB_PIN, voltage: v * 3.3 });
+  }
+
   function handleActivate() {
     const elf = view === "daisy" ? selectedElf : selectedDiscoveryElf;
     if (elf) {
@@ -210,6 +245,8 @@ export default function App() {
     setInputLevel(null);
     setLedLevel(null);
     setDaisyPinStates({});
+    pa2SamplesRef.current = [];
+    setPa2LedDuty(0);
     setPinStatesByBoard(Object.fromEntries(BOARDS.map((b) => [b.id, buildPinMap()])));
   }
 
@@ -345,8 +382,8 @@ export default function App() {
                 onPinSelect={setSelectedDaisyPin}
                 onInjectLevel={onDaisyInjectLevel}
                 onPulsePin={onDaisyPulsePin}
-                oledElement={<OledDisplay frame={oledFrame} />}
-                breadboardElement={<BreadboardButton onDown={handleBreadboardDown} onUp={handleBreadboardUp} />}
+                oledElement={null}
+                breadboardElement={<BreadboardPanel oledElement={<OledDisplay frame={oledFrame} small />} onDown={handleBreadboardDown} onUp={handleBreadboardUp} onKnobRelease={handleKnobRelease} ledDuty={pa2LedDuty} mode={bbMode} />}
                 pinStates={daisyPinStates}
               />
             ) : (

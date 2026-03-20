@@ -14,10 +14,10 @@ import { BACKEND_WS_URL, BOARDS } from "../constants";
  * @param {(msg: object) => void} [callbacks.onHello]
  * @param {(machine: string, pc: string) => void} [callbacks.onPcValue]
  */
-export function useWebSocket({ onStatus, onPinState, onLog, onScriptLoaded, onOledFrame, onHello, onPcValue }) {
+export function useWebSocket({ onStatus, onPinState, onLog, onScriptLoaded, onOledFrame, onHello, onPcValue, onPwmState }) {
   const wsRef = useRef(null);
-  const cbRef = useRef({ onStatus, onPinState, onLog, onScriptLoaded, onOledFrame, onHello, onPcValue });
-  cbRef.current = { onStatus, onPinState, onLog, onScriptLoaded, onOledFrame, onHello, onPcValue };
+  const cbRef = useRef({ onStatus, onPinState, onLog, onScriptLoaded, onOledFrame, onHello, onPcValue, onPwmState });
+  cbRef.current = { onStatus, onPinState, onLog, onScriptLoaded, onOledFrame, onHello, onPcValue, onPwmState };
 
   const [socketState, setSocketState] = useState("disconnected");
 
@@ -43,7 +43,7 @@ export function useWebSocket({ onStatus, onPinState, onLog, onScriptLoaded, onOl
         if (msg.type === "hello" || msg.type === "status") {
           cbRef.current.onStatus(Boolean(msg.running));
           if (msg.type === "hello") {
-            if (msg.scenario) cbRef.current.onScriptLoaded?.(msg.scenario);
+            if (msg.scenario && msg.scenario !== "none") cbRef.current.onScriptLoaded?.(msg.scenario);
             cbRef.current.onHello?.(msg);
           }
           return;
@@ -73,6 +73,8 @@ export function useWebSocket({ onStatus, onPinState, onLog, onScriptLoaded, onOl
         if (msg.type === "pc_value" && typeof msg.pc === "string") {
           cbRef.current.onPcValue?.(msg.machine || "", msg.pc);
         }
+
+
       } catch {
         cbRef.current.onLog("error", `Invalid JSON message: ${evt.data}`, null);
       }

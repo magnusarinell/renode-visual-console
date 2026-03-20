@@ -573,6 +573,12 @@
   border: 1px solid #1a2e33;
 }
 
+/* Half-size OLED (1.5×) for embedding inside the breadboard panel */
+.daisy-oled-canvas--small {
+  width: 192px;
+  height: 96px;
+}
+
 /* ── Firmware selector dropdown ──────────────────────────────────────────── */
 
 .daisy-elf-select {
@@ -745,4 +751,163 @@
   background: #70c0e0;
   box-shadow: 0 0 6px #50b0d0, 0 0 0 2px #4090b0;
   transform: translate(-50%, -50%) scale(0.92);
+}
+
+/* ── OLED sub-panel embedded inside breadboard ───────────────────────────── */
+
+.bb-oled-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #1e3242;
+  margin-bottom: 2px;
+}
+
+.bb-oled-conn {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+/* ── Breadboard soft-PWM LED indicator ──────────────────────────────────── */
+/* The LED visualises the rolling average of PA2 GPIO samples.               */
+/* --led-duty (0–1) drives opacity; a CSS transition gives the sluggish feel. */
+
+.bb-led-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.bb-led-housing {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #1a0a00;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.9), 0 0 0 1.5px #3a2010;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bb-led-bulb {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #ff9820;
+  opacity: var(--led-duty, 0);
+  box-shadow: 0 0 5px 2px rgba(255,200,60,0.7);
+  transition: opacity 0.6s ease;
+}
+
+.bb-led-label {
+  font-size: 9px;
+  color: #8aa;
+  letter-spacing: 0.3px;
+}
+/* ── Breadboard panel — two-column component layout ─────────────────────── */
+
+.bb-components {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.bb-comp {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  flex: 1;
+}
+
+.bb-comp-label {
+  font-size: 0.61rem;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: #4e6e7e;
+}
+
+/* Vertical separator between components */
+.bb-comp-sep {
+  width: 1px;
+  align-self: stretch;
+  background: #1e3242;
+  margin-top: 18px;
+}
+
+.bb-comp-pins {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.bb-pin-ref {
+  font-size: 0.57rem;
+  color: #435e6c;
+  white-space: nowrap;
+}
+
+.bb-pin-ref em {
+  font-style: normal;
+  font-family: monospace;
+  font-weight: 700;
+  color: #6aaCc0;
+}
+
+/* ── Knob (rotary potentiometer) ─────────────────────────────────────────── */
+
+.bb-knob-wrap {
+  cursor: ns-resize;
+  user-select: none;
+  touch-action: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+}
+
+.bb-knob {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 32%, #4a5564, #1e2330);
+  border: 2px solid #3a4a60;
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  position: relative;
+  flex-shrink: 0;
+}
+
+/* Position indicator dot at top of knob */
+.bb-knob-dot {
+  position: absolute;
+  top: 5px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 8px;
+  background: #b8d4e8;
+  border-radius: 2px;
+}
+
+/* Level bar below knob */
+.bb-knob-arc {
+  width: 40px;
+  height: 4px;
+  border-radius: 2px;
+  background: #1a2534;
+  overflow: hidden;
+}
+
+.bb-knob-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #2a7888, #60c0d8);
+  border-radius: 2px;
+  transition: width 0.04s linear;
 }

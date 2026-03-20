@@ -44,3 +44,11 @@ led0: Miscellaneous.LED @ gpioPortC
 
 gpioPortC:
     7 -> led0@0
+
+// PA2 is the external breadboard LED driven by soft-PWM in the Knob example.
+// Registering a connection here makes gpioPortA GetGPIOs return PA2's output
+// state so the backend can sample it for the rolling duty-cycle average.
+led_pa2: Miscellaneous.LED @ gpioPortA
+
+gpioPortA:
+    2 -> led_pa2@0

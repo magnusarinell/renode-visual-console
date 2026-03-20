@@ -16,6 +16,7 @@ sysbus Unregister rcc
 sysbus Unregister flashController
 sysbus Unregister syscfg
 sysbus Unregister qspi
+sysbus Unregister adcM1S2
 
 # Load Python stubs from daisy_stubs.repl (inline script: blocks avoid
 # $ORIGIN expansion issues that affect filename: inside LoadPlatformDescriptionFromString).

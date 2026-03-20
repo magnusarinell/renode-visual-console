@@ -150,6 +150,11 @@ function stopPcPollLoop() {
 // Cache of symbol address from map file (address is same for all machines since same ELF)
 let _blinkIntervalMsAddr = undefined;
 
+// Daisy ADC DMA buffer address — discovered at runtime from DMA controller.
+// libDaisy's HAL_ADC_Start_DMA() configures DMA1_Stream2 with M0AR pointing
+// to adc1_dma_buffer[].  We read that register once; null = not yet resolved.
+let _daisyAdcDmaBufAddr = undefined;
+
 function getBlinkIntervalMsAddr() {
   if (_blinkIntervalMsAddr !== undefined) return _blinkIntervalMsAddr;
   const mapPath = path.join(repoRoot, "zephyr", "build", "zephyr", "zephyr.map");
@@ -166,6 +171,34 @@ function getBlinkIntervalMsAddr() {
   } catch (e) {}
   _blinkIntervalMsAddr = null;
   return null;
+}
+
+/**
+ * Resolve the Daisy ADC DMA buffer address by reading DMA1_Stream2 M0AR.
+ *
+ * libDaisy configures DMA1_Stream2 (request: ADC1) with M0AR pointing to the
+ * static adc1_dma_buffer[] in D2 SRAM.  By reading that DMA register after
+ * firmware init we get the exact target address without hard-coding anything
+ * or parsing map-files.
+ *
+ * DMA1 base: 0x40020000  Stream 2 M0AR: base + 0x01C + 2*0x018 = 0x4002004C
+ */
+async function getDaisyAdcDmaBufAddr(machine) {
+  if (_daisyAdcDmaBufAddr !== undefined) return _daisyAdcDmaBufAddr;
+  try {
+    const res = await executeRenodeCommandSilent(
+      "sysbus ReadDoubleWord 0x4002004C", machine);
+    const text = [res.output, res.return].filter(Boolean).join(" ").trim();
+    const m = text.match(/0x([0-9a-fA-F]+)/);
+    if (m) {
+      const addr = parseInt(m[1], 16);
+      if (addr > 0 && addr < 0xFFFFFFFF) {
+        _daisyAdcDmaBufAddr = addr;
+        return _daisyAdcDmaBufAddr;
+      }
+    }
+  } catch { /* not ready yet */ }
+  return null;  // DMA not yet configured — try again later
 }
 
 function sleep(ms) {
@@ -760,9 +793,18 @@ async function pushGpioState(machine) {
       // alternate randomly in GetGPIOs, so we trust what we explicitly wrote.
       const level = override !== undefined ? override : (fromMap !== undefined ? fromMap : null);
       const key = overrideKey;
-      if (_gpioPrevState[key] !== level) {
-        _gpioPrevState[key] = level;
-        emit({ type: "pin_state", machine, pin: `P${port}${pinNum}`, level, ts: Date.now() });
+      // PA2 (Daisy Seed LED output) is toggled by software PWM at ~120 Hz.
+      // Always emit its state on every poll tick so the frontend can compute
+      // a rolling average that approximates the actual duty cycle.
+      // Bypass gpioWriteOverrides for this pin — we want actual firmware output,
+      // not the level we injected for button simulation.
+      const alwaysEmit = activeScenario === "daisy" && port === "A" && pinNum === 2;
+      const sampleLevel = alwaysEmit
+        ? (fromMap !== undefined ? fromMap : null)
+        : level;
+      if (alwaysEmit || _gpioPrevState[key] !== sampleLevel) {
+        _gpioPrevState[key] = sampleLevel;
+        emit({ type: "pin_state", machine, pin: `P${port}${pinNum}`, level: sampleLevel, ts: Date.now() });
       }
     }
   }
@@ -896,6 +938,7 @@ async function handleLoadScript(scenario) {
   hubTesterReadyByMachine.clear();
   hubTesterIdByMachine.clear();
   _gpioPrevState = {};
+  _daisyAdcDmaBufAddr = undefined;
   Object.keys(gpioWriteOverrides).forEach((k) => delete gpioWriteOverrides[k]);
   // Remove all currently active machines from Renode one by one
   const machinesToRemove = [...activeMachines]; // snapshot before we overwrite activeMachines
@@ -1305,6 +1348,37 @@ wss.on("connection", (ws) => {
       if (msg.type === "analog" && typeof msg.pin === "string" && typeof msg.voltage === "number") {
         const machine = resolveMachine(msg.machine);
         const v = Math.max(0, Math.min(3.3, msg.voltage)).toFixed(3);
+
+        if (machine === "daisy_0") {
+          // Daisy Seed ADC — Knob.cpp uses DMA-based AdcHandle.
+          // GetFloat(0) reads adc1_dma_buffer[0] / 65536.0  (16-bit, 0–65535).
+          //
+          // Our Python ADC stub (stm32h7_adc_stub.py) makes init succeed, but
+          // can't trigger DMA requests.  Instead we write directly to the DMA
+          // buffer.  The address is read from DMA1_Stream2 M0AR — the register
+          // that firmware itself programmed during HAL_ADC_Start_DMA().
+          const DAISY_ADC_PINS = new Set(["PC4"]);
+          if (!DAISY_ADC_PINS.has(msg.pin)) {
+            emitLog("system", `No ADC mapping for pin ${msg.pin} (daisy)`, machine);
+            return;
+          }
+          getDaisyAdcDmaBufAddr(machine).then((bufAddr) => {
+            if (bufAddr === null) {
+              emitLog("system", `ADC DMA buffer not yet resolved — firmware may still be initialising`, machine);
+              return;
+            }
+            const raw16 = Math.max(0, Math.min(65535, Math.round((parseFloat(v) / 3.3) * 65535)));
+            const cmd = `sysbus WriteWord 0x${bufAddr.toString(16)} ${raw16}`;
+            executeRenodeCommand(cmd, machine)
+              .then(() => {
+                emitLog("system", `ADC ${msg.pin}: ${v}V → dma_buf[0]=${raw16} (${(parseFloat(v)/3.3*100).toFixed(0)}%)`, machine);
+              })
+              .catch(() => {});
+          }).catch(() => {});
+          return;
+        }
+
+        // Discovery board ADC
         const PIN_TO_ADC_CH = { PA1: 1, PA6: 6 };
         const ch = PIN_TO_ADC_CH[msg.pin];
         if (ch !== undefined) {
