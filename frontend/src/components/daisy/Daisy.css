@@ -615,14 +615,15 @@
 /* ── Breadboard button panel ─────────────────────────────────────────────── */
 
 .bb-panel {
-  background: #111c24;
-  border: 1px solid #2e4450;
+  background: #0e1a14;
+  border: 1px solid #1e3828;
   border-radius: 8px;
   padding: 10px 14px 12px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  min-width: 160px;
+  gap: 6px;
+  min-width: 250px;
+  min-height: 500px;
 }
 
 .bb-title {
@@ -648,25 +649,38 @@
 
 .bb-rail-dots {
   display: flex;
-  gap: 4px;
+  flex: 1;
+  justify-content: space-between;
+  padding: 0 2px;
 }
 
 .bb-dot {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #2e4a52;
-  border: 1px solid #3d6070;
+  background: #1a3028;
+  border: 1px solid #2a5040;
 }
 
-.bb-rail-top .bb-dot  { background: #2a5030; border-color: #3a7040; }
-.bb-rail-bottom .bb-dot { background: #502020; border-color: #703030; }
+/* VCC rail (3V3): red dots */
+.bb-rail-vcc .bb-dot  { background: #5a0808; border-color: #aa2020; }
+/* GND rail: dark-blue dots */
+.bb-rail-gnd .bb-dot { background: #0a1840; border-color: #1a3080; }
+/* Signal rail (wiper, IO): grey dots */
+.bb-rail-sig .bb-dot { background: #1e2a2e; border-color: #354e58; }
 
-.bb-rail-label {
+/* Hole row for component area decoration */
+.bb-hole-row {
   display: flex;
-  align-items: baseline;
-  gap: 5px;
+  justify-content: space-between;
+  padding: 3px 0;
 }
+
+/* VCC rail pin-num: red tint */
+.bb-rail-vcc .bb-pin-num  { color: #e05050; }
+/* GND rail pin-num: blue tint */
+.bb-rail-gnd .bb-pin-num { color: #5080d0; }
+/* Signal rail pin-num: default colour */
 
 .bb-pin-num {
   font-family: monospace;
@@ -796,9 +810,9 @@
   width: 9px;
   height: 9px;
   border-radius: 50%;
-  background: #ff9820;
+  background: #ff2020;
   opacity: var(--led-duty, 0);
-  box-shadow: 0 0 5px 2px rgba(255,200,60,0.7);
+  box-shadow: 0 0 5px 2px rgba(255,60,60,0.7);
   transition: opacity 0.6s ease;
 }
 
@@ -822,6 +836,22 @@
   align-items: center;
   gap: 7px;
   flex: 1;
+}
+
+/* Single-column component block (no flex-grow) */
+.bb-comp-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 0 4px;
+}
+
+/* Separator between component groups (pot vs LED) */
+.bb-section-gap {
+  height: 6px;
+  border-top: 1px dashed #1e2e20;
+  margin: 2px 0;
 }
 
 .bb-comp-label {

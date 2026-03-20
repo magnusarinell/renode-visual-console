@@ -54,11 +54,15 @@ export default function App() {
   // ── Breadboard mode: derived from selected ELF filename ─────────────────
   // "knob"   → pot + LED indicator (PA2 is firmware output)
   // "button" → tact switch         (PA2 is firmware input)
+  // "oled"   → only OLED display
+  // "blink"  → empty breadboard
   const bbMode = (() => {
     const name = (selectedElf || "").toLowerCase();
     if (name.includes("knob"))   return "knob";
     if (name.includes("button")) return "button";
-    return "knob"; // default
+    if (name.includes("oled"))   return "oled";
+    if (name.includes("blink"))  return "blink";
+    return "blink"; // default (unknown firmware = empty board)
   })();
   bbModeRef.current = bbMode;
 
@@ -383,7 +387,7 @@ export default function App() {
                 onInjectLevel={onDaisyInjectLevel}
                 onPulsePin={onDaisyPulsePin}
                 oledElement={null}
-                breadboardElement={<BreadboardPanel oledElement={<OledDisplay frame={oledFrame} small />} onDown={handleBreadboardDown} onUp={handleBreadboardUp} onKnobRelease={handleKnobRelease} ledDuty={pa2LedDuty} mode={bbMode} />}
+                breadboardElement={<BreadboardPanel oledElement={bbMode === "oled" ? <OledDisplay frame={oledFrame} small /> : null} onDown={handleBreadboardDown} onUp={handleBreadboardUp} onKnobRelease={handleKnobRelease} ledDuty={pa2LedDuty} mode={bbMode} />}
                 pinStates={daisyPinStates}
               />
             ) : (
