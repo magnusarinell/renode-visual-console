@@ -9,6 +9,11 @@
   // Requires: marus25.cortex-debug extension
   // cppdbg is omitted — Cortex-Debug is a strict superset for ARM targets
   // (adds peripheral register browser, disassembly pane, memory viewer).
+  //
+  // Port map:
+  //   3333 → Daisy (daisy_seed.resc)
+  //   3334 → Discovery board_0 (discovery_dual.resc)
+  //   3335 → Discovery board_1 (discovery_dual.resc)
   "version": "0.2.0",
   "configurations": [
     {
@@ -22,8 +27,36 @@
       "objdumpPath": "${config:zephyrSdkPath}/arm-zephyr-eabi/bin/arm-zephyr-eabi-objdump",
       "cwd": "${workspaceFolder}",
       "runToEntryPoint": "main",
-      "showDevDebugOutput": "none",
-      "preLaunchTask": null
+      "showDevDebugOutput": "none"
+    },
+    {
+      // Discovery board_0 (Cortex-M4, Zephyr firmware)
+      // ELF: zephyr/build/zephyr/zephyr.elf  (run npm run build first)
+      "name": "Discovery board_0 – Renode GDB",
+      "type": "cortex-debug",
+      "request": "attach",
+      "servertype": "external",
+      "gdbTarget": "localhost:3334",
+      "executable": "${workspaceFolder}/zephyr/build/zephyr/zephyr.elf",
+      "gdbPath": "${config:zephyrSdkPath}/arm-zephyr-eabi/bin/arm-zephyr-eabi-gdb",
+      "objdumpPath": "${config:zephyrSdkPath}/arm-zephyr-eabi/bin/arm-zephyr-eabi-objdump",
+      "cwd": "${workspaceFolder}",
+      "runToEntryPoint": "main",
+      "showDevDebugOutput": "none"
+    },
+    {
+      // Discovery board_1 (Cortex-M4, Zephyr firmware)
+      "name": "Discovery board_1 – Renode GDB",
+      "type": "cortex-debug",
+      "request": "attach",
+      "servertype": "external",
+      "gdbTarget": "localhost:3335",
+      "executable": "${workspaceFolder}/zephyr/build/zephyr/zephyr.elf",
+      "gdbPath": "${config:zephyrSdkPath}/arm-zephyr-eabi/bin/arm-zephyr-eabi-gdb",
+      "objdumpPath": "${config:zephyrSdkPath}/arm-zephyr-eabi/bin/arm-zephyr-eabi-objdump",
+      "cwd": "${workspaceFolder}",
+      "runToEntryPoint": "main",
+      "showDevDebugOutput": "none"
     }
   ],
   "inputs": [

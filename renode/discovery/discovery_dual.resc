@@ -8,6 +8,8 @@ showAnalyzer sysbus.usart3
 sysbus LoadELF $elf
 # Connect USART2 to UART Hub for inter-board communication
 connector Connect sysbus.usart2 uartHub
+# GDB server for board_0 — connect with VS Code launch config "Discovery board_0"
+machine StartGdbServer 3334
 
 mach create "board_1"
 machine LoadPlatformDescription @platforms/boards/stm32f4_discovery-kit.repl
@@ -15,6 +17,8 @@ showAnalyzer sysbus.usart3
 sysbus LoadELF $elf
 # Connect USART2 to UART Hub for inter-board communication
 connector Connect sysbus.usart2 uartHub
+# GDB server for board_1 — connect with VS Code launch config "Discovery board_1"
+machine StartGdbServer 3335
 
 emulation SetGlobalQuantum "0.000025"
 emulation SetGlobalSerialExecution True
