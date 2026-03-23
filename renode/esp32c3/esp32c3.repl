@@ -1,0 +1,101 @@
+// ESP32-C3 minimal platform for Renode simulation.
+//
+// Based on ESP32-C3 Technical Reference Manual memory map.
+// Designed for esp-idf firmware built with idf.py (target esp32c3).
+// NOT a full hardware-accurate ESP32-C3 model.
+//
+// Key design choices:
+//   • UART0 uses NS16550 at 0x60000000 — firmware writes char to offset 0 (THR),
+//     NS16550 passes it to the backend's TerminalTester.
+//   • GPIO registers are plain MappedMemory — firmware writes GPIO_OUT at
+//     0x60004004, backend reads it back with "sysbus ReadDoubleWord 0x60004004".
+//   • soc_stub MappedMemory absorbs all other peripheral space accesses
+//     (clock init, system registers, etc.) without generating faults.
+
+// Flash-cached read-only data (DROM) — esp-idf places .rodata here via cache.
+drom: Memory.MappedMemory @ sysbus 0x3C000000
+    size: 0x400000
+
+dram: Memory.MappedMemory @ sysbus 0x3FC80000
+    size: 0x80000
+
+// ROM data region — function-pointer tables and ROM rodata used by ROM calls.
+rom_data: Memory.MappedMemory @ sysbus 0x3FF00000
+    size: 0x20000
+
+// ROM code (384 KB) — ESP32-C3 mask ROM at 0x40000000.
+// Pre-filled with c.jr ra (0x8082) via rom_stub.bin loaded in esp32c3.resc.
+// Every call into the ROM region returns immediately to the caller (RA),
+// making all esp_rom_* startup calls safe no-ops.
+rom: Memory.MappedMemory @ sysbus 0x40000000
+    size: 0x60000
+
+// IRAM — internal SRAM used for code + data loaded from flash at boot.
+// esp-idf linker script starts IRAM at 0x4037C000 (400 KB = 0x64000).
+iram: Memory.MappedMemory @ sysbus 0x4037C000
+    size: 0x64000
+
+flash: Memory.MappedMemory @ sysbus 0x42000000
+    size: 0x400000
+
+rtcram: Memory.MappedMemory @ sysbus 0x50000000
+    size: 0x2000
+
+// ── UART0 proxy ──────────────────────────────────────────────────────────────
+// NS16550 with wideRegisters: THR (TX) at offset 0x00, registers 4-byte aligned.
+// esp-idf UART driver writes to UART_FIFO_REG (0x60000000) = NS16550 THR; the
+// TerminalTester captures each emitted character for backend streaming.
+uart0: UART.NS16550 @ sysbus 0x60000000
+    wideRegisters: true
+
+// ── ESP32-C3 SoC peripheral catch-all (APB bus) ─────────────────────────────
+// Split into two blocks to exclude the SPI1/SPI0 register range 0x60002000–
+// 0x60003FFF. Those SPI registers use Tags (in .resc) that always return 0,
+// because firmware polls SPI_CMD_REG waiting for hardware to clear the USR
+// bit — a MappedMemory would persist the written value and cause an infinite
+// loop in bootloader_flash_execute_command_common.
+//
+// soc_pre_spi: 0x60001000–0x60001FFF (UART1 area)
+// (SPI1 @ 0x60002000 and SPI0 @ 0x60003000 handled by Tags)
+// soc_post_spi: 0x60004000–0x600BFFFF (GPIO, TIMG, RTC_CNTL, SYSTIMER etc.)
+//   0x60004000  GPIO regs  (GPIO_OUT at +0x04 = 0x60004004)
+//   0x6001F000  TIMG0 WDT (disabled at startup via magic-key + clear)
+//   0x60020000  TIMG1 WDT
+//   0x60008000  RTC_CNTL   (RTC WDT + Super-WDT disabled at startup)
+//   0x60023000  SYSTIMER
+// Backend reads GPIO_OUT via:  sysbus ReadDoubleWord 0x60004004
+soc_pre_spi: Memory.MappedMemory @ sysbus 0x60001000
+    size: 0x1000
+
+soc_post_spi: Memory.MappedMemory @ sysbus 0x60004000
+    size: 0xBC000
+
+// ── ESP32-C3 SoC peripheral catch-all ("high bus" 0x600C0000–0x600CFFFF) ────
+// Covers SYSTEM (0x600C0000), SENSITIVE, INTERRUPT_CORE0 (0x600C2000),
+// EXTMEM / cache-MMU (0x600C4000), and MMU table (0x600C5000).
+// esp-idf startup configures all of these before app_main() runs.
+soc_high: Memory.MappedMemory @ sysbus 0x600C0000
+    size: 0x10000
+
+// ── High-memory absorber ─────────────────────────────────────────────────────
+// Absorbs stack writes near the top of the 32-bit address space during boot
+// (e.g. 0xFFFFFFFC – initial interrupt-frame save area before SP is set up).
+high_mem: Memory.MappedMemory @ sysbus 0xFFFFF000
+    size: 0x1000
+
+// ── RISC-V CPU ───────────────────────────────────────────────────────────────
+// cpuType includes _zicsr so CSR instructions (csrrw/csrrs/csrrc) are enabled.
+// Without Zicsr the trap-vector setup silently fails and the CPU jumps to 0x0
+// on the first exception, causing an immediate abort.
+// Priv1_11 matches the ESP32-C3 RISC-V privilege spec version.
+cpu: CPU.RiscV32 @ sysbus
+    cpuType: "rv32imc_zicsr"
+    privilegedArchitecture: PrivilegedArchitecture.Priv1_11
+    timeProvider: clint
+    hartId: 0
+
+// CLINT at an unused address (ESP32-C3 does not have a standard RISC-V CLINT;
+// this is required by Renode's RiscV32 model as a time source).
+clint: IRQControllers.CoreLevelInterruptor @ sysbus 0x02000000
+    [0,1] -> cpu@[3,7]
+    frequency: 40000000

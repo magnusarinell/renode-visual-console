@@ -6,11 +6,13 @@ import {
   buildPinMap, firmwareOutputsFor, isGpioPin,
 } from "./constants";
 import { DAISY_MACHINE, DAISY_INPUT_PIN, DAISY_OUTPUT_PIN, DAISY_LED_PIN, DAISY_BUTTON_PIN, DAISY_KNOB_PIN } from "./daisy-constants";
+import { ESP32C3_MACHINE, ESP32C3_LED_PIN, esp32c3ModeFromElf } from "./esp32c3-constants";
 import { useWebSocket } from "./hooks/useWebSocket";
 import { BoardCard } from "./components/BoardCard";
 import { BreadboardPanel } from "./components/daisy/BreadboardPanel"; // eslint-disable-line no-unused-vars
 import { DaisySeedBoard } from "./components/daisy/DaisySeedBoard";
 import { OledDisplay } from "./components/daisy/OledDisplay";
+import { Esp32C3Board } from "./components/esp32c3/Esp32C3Board";
 import { LogPanel } from "./components/LogPanel";
 
 let _logSeq = 0;
@@ -33,6 +35,9 @@ export default function App() {
   const [selectedElf, setSelectedElf]         = useState("");
   const [discoveryElfs, setDiscoveryElfs]     = useState([]);
   const [selectedDiscoveryElf, setSelectedDiscoveryElf] = useState("");
+  const [esp32c3Elfs, setEsp32c3Elfs]         = useState([]);
+  const [selectedEsp32c3Elf, setSelectedEsp32c3Elf] = useState("");
+  const [esp32c3LedLevel, setEsp32c3LedLevel] = useState(null);
   const [pcLog, setPcLog]                     = useState([]);
   const [pinStatesByBoard, setPinStatesByBoard] = useState(() =>
     Object.fromEntries(BOARDS.map((b) => [b.id, buildPinMap()]))
@@ -66,6 +71,8 @@ export default function App() {
   })();
   bbModeRef.current = bbMode;
 
+  const esp32c3Mode = esp32c3ModeFromElf(selectedEsp32c3Elf);
+
   // ── WebSocket ──────────────────────────────────────────────────────────────
 
   const { socketState, send } = useWebSocket({
@@ -73,6 +80,7 @@ export default function App() {
     onHello: (msg) => {
       if (Array.isArray(msg.elf_list)) setElfFiles(msg.elf_list);
       if (Array.isArray(msg.discovery_elf_list)) setDiscoveryElfs(msg.discovery_elf_list);
+      if (Array.isArray(msg.esp32c3_elf_list)) setEsp32c3Elfs(msg.esp32c3_elf_list);
     },
     onOledFrame: (_machine, data) => setOledFrame(data),
     onPcValue: (_machine, pc) => setPcLog((prev) => [
@@ -86,6 +94,7 @@ export default function App() {
       setLedLevel(null);
       setPcLog([]);
       setOledFrame(null);
+      setEsp32c3LedLevel(null);
       setLogs([]);
       setDaisyPinStates({});
       pa2SamplesRef.current = [];
@@ -115,6 +124,10 @@ export default function App() {
           const avg = w.reduce((a, b) => a + b, 0) / w.length;
           setPa2LedDuty(avg);
         }
+        return;
+      }
+      if (machine === ESP32C3_MACHINE) {
+        if (pin === ESP32C3_LED_PIN) setEsp32c3LedLevel(level);
         return;
       }
       setPinStatesByBoard((prev) => {
@@ -155,6 +168,10 @@ export default function App() {
   const uartLogs = useMemo(() => logs.filter((e) => e.stream === "uart"), [logs]);
   const daisyUartLogs = useMemo(
     () => logs.filter((e) => e.stream === "uart" && e.machine === DAISY_MACHINE),
+    [logs]
+  );
+  const esp32c3UartLogs = useMemo(
+    () => logs.filter((e) => e.stream === "uart" && e.machine === ESP32C3_MACHINE),
     [logs]
   );
   const uartHubLogs = useMemo(() => logs.filter((e) => e.stream === "hub"), [logs]);
@@ -228,7 +245,10 @@ export default function App() {
   }
 
   function handleActivate() {
-    const elf = view === "daisy" ? selectedElf : selectedDiscoveryElf;
+    const elf =
+      view === "daisy" ? selectedElf :
+      view === "esp32c3" ? selectedEsp32c3Elf :
+      selectedDiscoveryElf;
     if (elf) {
       send({ type: "select_binary", elf, scenario: view });
     } else {
@@ -241,6 +261,7 @@ export default function App() {
     setLogs([]);
     setSelectedElf("");
     setSelectedDiscoveryElf("");
+    setSelectedEsp32c3Elf("");
     setPcLog([]);
     setOledFrame(null);
     setActiveScript("none");
@@ -248,6 +269,7 @@ export default function App() {
     setOutputLevel(null);
     setInputLevel(null);
     setLedLevel(null);
+    setEsp32c3LedLevel(null);
     setDaisyPinStates({});
     pa2SamplesRef.current = [];
     setPa2LedDuty(0);
@@ -293,8 +315,14 @@ export default function App() {
 
   // ── Status label ───────────────────────────────────────────────────────────
 
-  const currentElfList = view === "daisy" ? elfFiles : discoveryElfs;
-  const currentElf     = view === "daisy" ? selectedElf : selectedDiscoveryElf;
+  const currentElfList =
+    view === "daisy" ? elfFiles :
+    view === "esp32c3" ? esp32c3Elfs :
+    discoveryElfs;
+  const currentElf =
+    view === "daisy" ? selectedElf :
+    view === "esp32c3" ? selectedEsp32c3Elf :
+    selectedDiscoveryElf;
 
   const statusLabel = useMemo(() => {
     if (socketState !== "connected") return "Renode: Disconnected";
@@ -320,14 +348,21 @@ export default function App() {
                 className={`view-btn${view === "daisy" ? " active" : ""}`}
                 onClick={() => setView("daisy")}
               >Daisy Seed</button>
+              <button
+                className={`view-btn${view === "esp32c3" ? " active" : ""}`}
+                onClick={() => setView("esp32c3")}
+              >ESP32-C3</button>
             </div>
             {currentElfList.length > 0 && (
               <select
                 className="elf-select"
                 value={currentElf}
-                onChange={(e) => view === "daisy"
-                  ? setSelectedElf(e.target.value)
-                  : setSelectedDiscoveryElf(e.target.value)
+                onChange={(e) =>
+                  view === "daisy"
+                    ? setSelectedElf(e.target.value)
+                    : view === "esp32c3"
+                      ? setSelectedEsp32c3Elf(e.target.value)
+                      : setSelectedDiscoveryElf(e.target.value)
                 }
                 title="Select firmware binary"
               >
@@ -356,7 +391,9 @@ export default function App() {
           <p className="subtitle">
             {view === "daisy"
               ? "Electrosmith Daisy Seed \u00b7 STM32H750IBK6 \u00b7 Cortex-M7"
-              : "STM32F4 Discovery Kit \u00b7 Renode dual-board simulation"}
+              : view === "esp32c3"
+                ? "ESP32-C3 DevKit-M1 \u00b7 RISC-V RV32IMAC \u00b7 UART+GPIO simulation"
+                : "STM32F4 Discovery Kit \u00b7 Renode dual-board simulation"}
           </p>
         </div>
         <div className="pill-row">
@@ -389,6 +426,13 @@ export default function App() {
                 oledElement={null}
                 breadboardElement={<BreadboardPanel oledElement={bbMode === "oled" ? <OledDisplay frame={oledFrame} small /> : null} onDown={handleBreadboardDown} onUp={handleBreadboardUp} onKnobRelease={handleKnobRelease} ledDuty={pa2LedDuty} mode={bbMode} />}
                 pinStates={daisyPinStates}
+              />
+            ) : view === "esp32c3" ? (
+              <Esp32C3Board
+                logs={esp32c3UartLogs}
+                onClearLogs={() => setLogs((prev) => prev.filter((e) => !(e.stream === "uart" && e.machine === ESP32C3_MACHINE)))}
+                mode={esp32c3Mode}
+                ledLevel={esp32c3LedLevel}
               />
             ) : (
               <div className="boards-tab-content">

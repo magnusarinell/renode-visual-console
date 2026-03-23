@@ -1,0 +1,84 @@
+path add $ORIGIN
+
+# ── Configurable ELF path ─────────────────────────────────────────────────────
+# Override from backend / CLI:  $elf=@/path/to/your.elf
+# Default: hello_world demo app.
+$elf ?= $ORIGIN/../../submodules/esp-idf/examples/get-started/hello_world/build/hello_world.elf
+
+mach create "esp32c3_0"
+machine LoadPlatformDescription @esp32c3.repl
+
+# —— ROM stub binary ————————————————————————————————————————————————————————————
+# Fill the ROM region with: c.li a0, 0 (0x4501) + c.jr ra (0x8082) per 4 bytes.
+# At any 4-byte aligned ROM function entry, this returns a0=0 (ESP_OK).
+# esp-idf startup calls many esp_rom_* functions (spiflash_wait_idle etc.);
+# returning 0 prevents callers from entering error-retry loops.
+sysbus LoadBinary @rom_stub.bin 0x40000000
+
+sysbus LoadELF $elf
+
+# ── uart_tx_one_char ROM trampoline ──────────────────────────────────────────
+# The ROM symbol uart_tx_one_char (0x40000068) is the final character-output
+# function used by ets_printf/esp_rom_printf and the console layer.
+# We patch it to write the character (in a0) directly to the NS16550 THR at
+# 0x60000000, so the TerminalTester captures every byte.
+#
+# RISC-V bytecode for:
+#   lui  t0, 0x60000      ; t0 = 0x60000000  (4 bytes: 0x600002B7)
+#   sb   a0, 0(t0)        ; *(t0) = a0 byte  (4 bytes: 0x00A28023)
+#   c.jr ra               ; return            (2 bytes: 0x8082)
+#
+# uart_tx_one_char  at 0x40000068: lui t0, 0x60000
+# uart_tx_one_char+4 at 0x4000006C: sb a0, 0(t0)
+# uart_tx_one_char+8 at 0x40000070: c.jr ra (already 0x8082 from stub)
+sysbus WriteDoubleWord 0x40000068 0x600002B7
+sysbus WriteDoubleWord 0x4000006C 0x00A28023
+# 0x40000070 already has 0x8082 (c.jr ra) from the stub pattern
+
+# ── ets_printf / esp_rom_printf ROM trampoline ───────────────────────────────
+# ets_printf (0x40000040) is a variadic printf-to-UART ROM function.
+# Replace it with a call to the uart_tx_one_char trampoline for each char.
+# Since implementing format parsing is complex, redirect single-char calls.
+# For formatted strings used in boot log: they reach uart_tx_one_char anyway
+# through the firmware's own printf → _write_r_console → esp_system_console_put_char path.
+# The ROM printf is only needed for early boot messages before console init.
+# For now: let ets_printf return 0 immediately (from stub) — app_main printf
+# uses the firmware IROM path which calls uart_tx_one_char directly.
+
+# ── SPI1 / SPI0 register stubs ────────────────────────────────────────────────
+# SPI1 (flash controller, 0x60002000) and SPI0 (cache controller, 0x60003000)
+# CMD registers: firmware sets the USR bit (bit 18) to start a transaction,
+# then polls until hardware clears it.  Tags always return 0 and silently
+# drop writes, so the poll loop exits immediately.
+sysbus Tag <0x60002000, 0x60002FFF> "spi1_regs" 0x0
+sysbus Tag <0x60003000, 0x60003FFF> "spi0_regs" 0x0
+
+# ── Espressif custom CSR patches ─────────────────────────────────────────────
+# Renode's rv32imc_zicsr model raises 'Illegal instruction' for unimplemented
+# CSRs, including Espressif-specific ones (0x7C0–0x7FF: mexstatus, cpu_gpio etc.)
+# The only custom CSR used in this firmware is 0x7E2 (cpu_gpio_out_user).
+# Each CSR READ is replaced with 'li rd, 0' (addi rd, x0, 0).
+# Each CSR WRITE is replaced with NOP (addi x0, x0, 0).
+# Detected by scripts/read_elf.py — scan at 2-byte intervals for all CSR 0x7C0-0x7FF.
+sysbus WriteDoubleWord 0x40387096 0x00000413  # [IRAM] csrrs x8,  CSR_0x7E2 → li s0, 0
+sysbus WriteDoubleWord 0x420011e0 0x00000513  # [IROM] csrrs x10, CSR_0x7E2 → li a0, 0
+sysbus WriteDoubleWord 0x4200120a 0x00000013  # [IROM] csrrw x0,  CSR_0x7E2 → nop
+
+# ── NS16550 UART init ─────────────────────────────────────────────────────────
+# Set LCR = 0x03 (8-bit data, no parity, 1 stop bit, DLAB=0) so THR is active.
+# With wideRegisters, LCR is at offset 0x0C from UART base.
+# ── UART0 extended register coverage ────────────────────────────────────────
+# NS16550 covers 0x60000000-0x6000001F (8 regs × 4 bytes wideRegisters).
+# ESP32-C3's UART0 config registers extend to 0x600000FF.
+# Tag the gap so UART driver init reads/writes don't generate warnings.
+sysbus Tag <0x60000020, 0x600000FF> "uart0_cfg" 0x0
+
+sysbus WriteDoubleWord 0x6000000C 0x03
+
+emulation SetGlobalQuantum "0.000025"
+emulation SetGlobalSerialExecution True
+
+# NOTE: 'start' is intentionally omitted — the backend creates the UART tester
+# (TerminalTester on sysbus.uart0) BEFORE starting the simulation so that
+# firmware startup messages are not missed.
+

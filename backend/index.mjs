@@ -39,12 +39,17 @@ const DAISY_ELF = process.env.DAISY_ELF || "";
 
 // Derive initial scenario from the loaded script path (simScript must be defined first)
 const _isDaisyScript    = simScript.includes("daisy");
+const _isEsp32c3Script  = simScript.includes("esp32c3");
 const _hasScript        = Boolean(simScript);
 // Mutable active scenario config (can be switched at runtime)
-let activeMachines       = _hasScript ? (_isDaisyScript ? ["daisy_0"] : [...MACHINES]) : [];
-let activeUartPeripheral = _hasScript ? (_isDaisyScript ? "sysbus.usart1" : (RENODE_UART || "sysbus.usart3")) : "";
-let activeHubPeripheral  = _hasScript ? (_isDaisyScript ? null : "sysbus.usart2") : null;
-let activeScenario       = _hasScript ? (_isDaisyScript ? "daisy" : "discovery") : "none";
+let activeMachines       = _hasScript
+  ? (_isDaisyScript ? ["daisy_0"] : (_isEsp32c3Script ? ["esp32c3_0"] : [...MACHINES]))
+  : [];
+let activeUartPeripheral = _hasScript
+  ? (_isDaisyScript ? "sysbus.usart1" : (_isEsp32c3Script ? "sysbus.uart0" : (RENODE_UART || "sysbus.usart3")))
+  : "";
+let activeHubPeripheral  = _hasScript ? ((_isDaisyScript || _isEsp32c3Script) ? null : "sysbus.usart2") : null;
+let activeScenario       = _hasScript ? (_isDaisyScript ? "daisy" : (_isEsp32c3Script ? "esp32c3" : "discovery")) : "none";
 
 let renode = null;
 let renodeSocket = null;
@@ -63,7 +68,7 @@ let rpcQueue = Promise.resolve();
 
 // ─── Daisy ELF discovery ─────────────────────────────────────────────────────
 function scanDaisyElfs() {
-  const seedDir = path.join(repoRoot, "libdaisy-examples", "seed");
+  const seedDir = path.join(repoRoot, "submodules", "DaisyExamples", "seed");
   if (!existsSync(seedDir)) return [];
   try {
     return readdirSync(seedDir, { withFileTypes: true })
@@ -73,7 +78,7 @@ function scanDaisyElfs() {
         if (!existsSync(buildDir)) return [];
         return readdirSync(buildDir)
           .filter((f) => f.endsWith(".elf"))
-          .map((f) => `libdaisy-examples/seed/${d.name}/build/${f}`);
+          .map((f) => `submodules/DaisyExamples/seed/${d.name}/build/${f}`);
       });
   } catch {
     return [];
@@ -90,6 +95,12 @@ function scanDiscoveryElfs() {
   } catch {
     return [];
   }
+}
+
+function scanEsp32c3Elfs() {
+  const elfRel = "submodules/esp-idf/examples/get-started/hello_world/build/hello_world.elf";
+  const elfAbs = path.join(repoRoot, elfRel);
+  return existsSync(elfAbs) ? [elfRel] : [];
 }
 
 // ─── OLED framebuffer poll loop (Daisy scenario only) ────────────────────────
@@ -127,7 +138,7 @@ function stopOledPollLoop() {
 let _pcPollTimer = null;
 
 async function pollPcValue() {
-  if (!renodeReady || !renodeRunning || activeScenario !== "daisy") return;
+  if (!renodeReady || !renodeRunning || (activeScenario !== "daisy" && activeScenario !== "esp32c3")) return;
   const machine = activeMachines[0];
   if (!machine) return;
   try {
@@ -139,7 +150,7 @@ async function pollPcValue() {
 }
 
 function startPcPollLoop() {
-  if (_pcPollTimer || activeScenario !== "daisy") return;
+  if (_pcPollTimer || (activeScenario !== "daisy" && activeScenario !== "esp32c3")) return;
   _pcPollTimer = setInterval(() => { pollPcValue().catch(() => {}); }, 2000);
 }
 
@@ -526,10 +537,19 @@ async function executeRenodeScript(scriptPath) {
 // BEFORE the .resc script is loaded.  The script uses $elf ?= <default>.
 let _daisyElfOverride = DAISY_ELF;
 let _discoveryElfOverride = "";
+let _esp32c3ElfOverride = "";
 
 async function setDaisyElfVariable(elfPath) {
   const elf = elfPath || _daisyElfOverride;
   if (!elf || activeScenario !== "daisy") return;
+  const elfPosix = path.resolve(repoRoot, elf).replace(/\\/g, "/");
+  emitLog("system", `Setting Renode $elf = ${elfPosix}`);
+  await callXmlRpc("ExecuteCommand", [`$elf=@${elfPosix}`]);
+}
+
+async function setEsp32c3ElfVariable(elfPath) {
+  const elf = elfPath || _esp32c3ElfOverride;
+  if (!elf || activeScenario !== "esp32c3") return;
   const elfPosix = path.resolve(repoRoot, elf).replace(/\\/g, "/");
   emitLog("system", `Setting Renode $elf = ${elfPosix}`);
   await callXmlRpc("ExecuteCommand", [`$elf=@${elfPosix}`]);
@@ -771,12 +791,37 @@ function getGpioPushPorts() {
   return activeScenario === "daisy" ? GPIO_PUSH_PORTS_DAISY : GPIO_PUSH_PORTS_DISCOVERY;
 }
 
+const GPIO_PUSH_PINS_ESP32C3 = [5]; // onboard LED pin for blink demo
+
 let _gpioPrevState = {}; // key: `${machine}:P${port}${pin}` -> level
 const gpioWriteOverrides = {}; // key: `${machine}:PIN` -> level (for unset/LOW pins omitted by GetGPIOs)
 const gpioScanTimers = new Map();
 
 async function pushGpioState(machine) {
   if (!renodeReady || !renodeRunning) return;
+  if (activeScenario === "esp32c3") {
+    // For the custom esp32c3.repl we expose GPIO state via plain memory register:
+    // GPIO_OUT register at 0x60004004 (bit N = GPIO N output level)
+    let result;
+    try {
+      result = await executeRenodeCommandSilent("sysbus ReadDoubleWord 0x60004004", machine);
+    } catch {
+      return;
+    }
+    if (!result || result.status === "FAIL") return;
+    const raw = `${result.return || ""} ${result.output || ""}`;
+    const m = raw.match(/0x([0-9a-fA-F]+)/);
+    const outReg = m ? parseInt(m[1], 16) >>> 0 : 0;
+    for (const pinNum of GPIO_PUSH_PINS_ESP32C3) {
+      const level = Boolean(outReg & (1 << pinNum));
+      const key = `${machine}:GPIO${pinNum}`;
+      if (_gpioPrevState[key] !== level) {
+        _gpioPrevState[key] = level;
+        emit({ type: "pin_state", machine, pin: `GPIO${pinNum}`, level, ts: Date.now() });
+      }
+    }
+    return;
+  }
   for (const [port, pins] of Object.entries(getGpioPushPorts())) {
     let result;
     try {
@@ -874,15 +919,16 @@ async function connectToRobotServer() {
 
     for (const machine of activeMachines) {
       await startUartStreaming(machine);
-      // For Daisy: the resc does not call start so simulation is paused until the tester
-      // is ready. Start it now so no startup UART output is missed.
-      if (activeScenario === "daisy") {
+      // For Daisy and esp32c3: the resc does not call start so simulation is paused until
+      // the tester is ready. Start it now so no startup UART output is missed.
+      if (activeScenario === "daisy" || activeScenario === "esp32c3") {
         // Pass no machine context — 'start' is a global emulation command.
         const startRes = await callXmlRpc("ExecuteCommand", ["start"]).catch(e => ({ status: "FAIL", error: e.message }));
-        emitLog("system", `Daisy simulation start: ${startRes.status}${startRes.error ? " — " + startRes.error : ""}`, machine);
+        emitLog("system", `Simulation start: ${startRes.status}${startRes.error ? " — " + startRes.error : ""}`, machine);
       }
-      // 15 iterations × 50ms = 750ms coverage, enough for firmware's k_msleep(500) startup.
-      await drainUartLines(machine, 15, "0.05");
+      const initDrainLines   = activeScenario === "daisy" ? 15 : (activeScenario === "esp32c3" ? 5 : 15);
+      const initDrainTimeout = activeScenario === "daisy" ? "0.05" : (activeScenario === "esp32c3" ? "2.0" : "0.05");
+      await drainUartLines(machine, initDrainLines, initDrainTimeout);
 
       startUartDrainLoop(machine);
       if (activeHubPeripheral) {
@@ -892,7 +938,7 @@ async function connectToRobotServer() {
       startGpioPushLoop(machine);
     }
     if (activeScenario === "daisy") startOledPollLoop();
-    if (activeScenario === "daisy") startPcPollLoop();
+    if (activeScenario === "daisy" || activeScenario === "esp32c3") startPcPollLoop();
   } catch (err) {
     renodeRunning = false;
     renodeReady = false;
@@ -948,6 +994,10 @@ async function handleLoadScript(scenario) {
     activeMachines       = ["daisy_0"];
     activeUartPeripheral = "sysbus.usart1";
     activeHubPeripheral  = null;
+  } else if (scenario === "esp32c3") {
+    activeMachines       = ["esp32c3_0"];
+    activeUartPeripheral = "sysbus.uart0";
+    activeHubPeripheral  = null;
   } else {
     activeMachines       = ["board_0", "board_1"];
     activeUartPeripheral = "sysbus.usart3";
@@ -969,11 +1019,14 @@ async function handleLoadScript(scenario) {
 
   const newScript = scenario === "daisy"
     ? path.join(repoRoot, "renode", "daisy", "daisy_seed.resc")
-    : path.join(repoRoot, "renode", "discovery", "discovery_dual.resc");
+    : scenario === "esp32c3"
+      ? path.join(repoRoot, "renode", "esp32c3", "esp32c3.resc")
+      : path.join(repoRoot, "renode", "discovery", "discovery_dual.resc");
   const newScriptPosix = newScript.replace(/\\/g, "/");
   emitLog("system", `Loading script: ${newScriptPosix}`);
 
   await setDaisyElfVariable();
+  await setEsp32c3ElfVariable();
   if (scenario === "discovery" && _discoveryElfOverride) {
     const _elfPosix = path.resolve(repoRoot, _discoveryElfOverride).replace(/\\/g, "/");
     emitLog("system", `Setting Renode $elf = ${_elfPosix}`);
@@ -995,12 +1048,12 @@ async function handleLoadScript(scenario) {
 
   for (const machine of activeMachines) {
     await startUartStreaming(machine);
-    if (activeScenario === "daisy") {
+    if (activeScenario === "daisy" || activeScenario === "esp32c3") {
       const startRes = await callXmlRpc("ExecuteCommand", ["start"]).catch(e => ({ status: "FAIL", error: e.message }));
-      emitLog("system", `Daisy simulation start: ${startRes.status}${startRes.error ? " — " + startRes.error : ""}`, machine);
+      emitLog("system", `Simulation start: ${startRes.status}${startRes.error ? " — " + startRes.error : ""}`, machine);
     }
-    const drainTimeout = activeScenario === "daisy" ? "0.0005" : "0.05";
-    const drainLines  = activeScenario === "daisy" ? 2 : 15;
+    const drainTimeout = activeScenario === "daisy" ? "0.0005" : "2.0";
+    const drainLines  = activeScenario === "daisy" ? 2 : 5;
     await drainUartLines(machine, drainLines, drainTimeout);
     startUartDrainLoop(machine);
     if (activeHubPeripheral) {
@@ -1010,7 +1063,7 @@ async function handleLoadScript(scenario) {
     startGpioPushLoop(machine);
   }
   if (activeScenario === "daisy") startOledPollLoop();
-  if (activeScenario === "daisy") startPcPollLoop();
+  if (activeScenario === "daisy" || activeScenario === "esp32c3") startPcPollLoop();
 }
 
 async function handleClear() {
@@ -1032,6 +1085,7 @@ async function handleClear() {
   activeScenario = "none";
   _daisyElfOverride = DAISY_ELF;
   _discoveryElfOverride = "";
+  _esp32c3ElfOverride = "";
   rpcQueue = Promise.resolve();
   emit({ type: "status", running: false, ts: Date.now() });
   // Delete stale OLED frame file so the display shows NO SIGNAL after clear
@@ -1270,7 +1324,15 @@ wss.on("connection", (ws) => {
   console.log("WebSocket client connected");
 
   // Send current state and buffered log history before joining broadcast set
-  ws.send(JSON.stringify({ type: "hello", running: renodeRunning, scenario: activeScenario, elf_list: scanDaisyElfs(), discovery_elf_list: scanDiscoveryElfs(), ts: Date.now() }));
+  ws.send(JSON.stringify({
+    type: "hello",
+    running: renodeRunning,
+    scenario: activeScenario,
+    elf_list: scanDaisyElfs(),
+    discovery_elf_list: scanDiscoveryElfs(),
+    esp32c3_elf_list: scanEsp32c3Elfs(),
+    ts: Date.now(),
+  }));
   for (const entry of logBuffer) {
     if (ws.readyState === 1) ws.send(JSON.stringify(entry));
   }
@@ -1315,7 +1377,8 @@ wss.on("connection", (ws) => {
       if (msg.type === "load_script" && typeof msg.scenario === "string") {
         // Optional: msg.elf overrides the ELF loaded by the daisy scenario
         if (typeof msg.elf === "string" && msg.elf) {
-          _daisyElfOverride = msg.elf;
+          if (msg.scenario === "daisy") _daisyElfOverride = msg.elf;
+          if (msg.scenario === "esp32c3") _esp32c3ElfOverride = msg.elf;
         }
         handleLoadScript(msg.scenario).catch((err) =>
           emitLog("system", `Load script error: ${err.message}`)
@@ -1324,8 +1387,12 @@ wss.on("connection", (ws) => {
       }
 
       if (msg.type === "select_binary" && typeof msg.elf === "string") {
-        const _selScenario = msg.scenario === "discovery" ? "discovery" : "daisy";
+        const _selScenario =
+          msg.scenario === "discovery" ? "discovery" :
+          msg.scenario === "esp32c3" ? "esp32c3" :
+          "daisy";
         if (_selScenario === "discovery") _discoveryElfOverride = msg.elf;
+        else if (_selScenario === "esp32c3") _esp32c3ElfOverride = msg.elf;
         else _daisyElfOverride = msg.elf;
         handleLoadScript(_selScenario).catch((err) =>
           emitLog("system", `select_binary error: ${err.message}`)

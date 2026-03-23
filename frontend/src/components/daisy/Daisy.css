@@ -480,11 +480,16 @@
 .power              { background: var(--daisy-power); }
 .daisy-pin          { background: var(--daisy-pin-name); }
 
+.daisy-board-with-com {
+  display: flex;
+  flex-direction: column;
+}
+
 /* ── COM card ─────────────────────────────────────────────────────────────── */
 
 .daisy-com-card {
   border-color: #2b3d44;
-  border-radius: 0;
+  border-radius: 8px;
   background: #0b1012;
   box-shadow: none;
 }

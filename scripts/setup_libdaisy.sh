@@ -8,19 +8,12 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-EXAMPLES_DIR="$ROOT_DIR/libdaisy-examples"
+EXAMPLES_DIR="$ROOT_DIR/submodules/DaisyExamples"
 
-# ── 1. Clone DaisyExamples (includes libDaisy as submodule) ──────
-if [[ -d "$EXAMPLES_DIR/.git" ]]; then
-    echo "DaisyExamples already cloned at $EXAMPLES_DIR"
-else
-    echo "Cloning DaisyExamples…"
-    git clone --depth 1 https://github.com/electro-smith/DaisyExamples.git "$EXAMPLES_DIR"
-fi
-
-echo "Initialising submodules (libDaisy, CMSIS)…"
-cd "$EXAMPLES_DIR"
-git submodule update --init --recursive --depth 1
+# ── 1. Initialise DaisyExamples git submodule (libDaisy, CMSIS…) ─
+echo "Initialising DaisyExamples submodule…"
+cd "$ROOT_DIR"
+git submodule update --init --recursive --depth 1 -- submodules/DaisyExamples
 
 # ── 2. Locate the Zephyr SDK ARM toolchain ──────────────────────
 ZEPHYR_SDK="${ZEPHYR_SDK_INSTALL_DIR:-}"

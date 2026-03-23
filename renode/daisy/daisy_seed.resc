@@ -3,7 +3,7 @@ path add $ORIGIN
 # ── Configurable ELF path ─────────────────────────────────────────
 # Override from backend / CLI:  $elf=@/path/to/your.elf
 # Default: Blink example from the local DaisyExamples clone.
-$elf ?= $ORIGIN/../../libdaisy-examples/seed/Blink/build/Blink.elf
+$elf ?= $ORIGIN/../../submodules/DaisyExamples/seed/Blink/build/Blink.elf
 
 mach create "daisy_0"
 machine LoadPlatformDescription @daisy_seed.repl

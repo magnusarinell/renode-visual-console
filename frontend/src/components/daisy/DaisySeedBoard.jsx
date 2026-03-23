@@ -75,6 +75,7 @@ export function DaisySeedBoard({
 
   return (
     <div className="daisy-outer-wrap">
+      <div className="daisy-board-with-com">
       <div className="board-with-pin-ctrl daisy-board-with-ctrl">
         <div className="board-main-column">
 
@@ -151,6 +152,16 @@ export function DaisySeedBoard({
 
         </div>
 
+        </div>{/* /board-main-column */}
+
+        <DaisyPinCtrlTab
+          selectedSignal={selectedSignal}
+          selectedPinWritable={selectedPinWritable}
+          onInjectLevel={onInjectLevel}
+          onPulsePin={onPulsePin}
+        />
+      </div>{/* /board-with-pin-ctrl */}
+
         {/* ── COM card ── */}
         <div className="uart-card daisy-com-card">
           <header>
@@ -175,15 +186,7 @@ export function DaisySeedBoard({
           </div>
         </div>
 
-      </div>
-
-        <DaisyPinCtrlTab
-          selectedSignal={selectedSignal}
-          selectedPinWritable={selectedPinWritable}
-          onInjectLevel={onInjectLevel}
-          onPulsePin={onPulsePin}
-        />
-      </div>
+      </div>{/* /daisy-board-with-com */}
 
       {oledElement && breadboardElement ? (
         <div className="daisy-center-column">

@@ -10,7 +10,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-EXAMPLES_DIR="$ROOT_DIR/libdaisy-examples"
+EXAMPLES_DIR="$ROOT_DIR/submodules/DaisyExamples"
 WRAPPER_DIR="$ROOT_DIR/.toolchain-wrappers"
 
 # Default example to build

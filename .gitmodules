@@ -1,0 +1,8 @@
+[submodule "submodules/DaisyExamples"]
+	path = submodules/DaisyExamples
+	url = https://github.com/electro-smith/DaisyExamples.git
+	shallow = true
+[submodule "submodules/esp-idf"]
+	path = submodules/esp-idf
+	url = https://github.com/espressif/esp-idf.git
+	shallow = true

@@ -972,7 +972,8 @@ h1 {
 
 .uart-card {
   border: 1px solid #2b3d44;
-  border-top: none;
+  border-radius: 8px;
+  margin-top: 0.6rem;
   background: #0b1012;
   padding: 0.9rem;
   display: flex;
