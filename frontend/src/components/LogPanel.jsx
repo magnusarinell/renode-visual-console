@@ -39,9 +39,10 @@ export function LogPanel({ systemLogs, monitorLogs, pcLog = [], activeTab, onTab
         <div className="log-pc-area">
           {pcLog.length === 0
             ? <span className="log-pc-empty">No data yet.</span>
-            : pcLog.map((entry) => (
+            : [...pcLog].reverse().map((entry) => (
               <div className="log-pc-line" key={entry.id}>
                 <span className="log-plain-ts">{new Date(entry.ts).toLocaleTimeString()}</span>
+                {entry.machine && <span className="log-plain-board">[{entry.machine}]</span>}
                 {entry.file ? (
                   <>
                     <span className="log-pc-file">{entry.file}:{entry.line}</span>

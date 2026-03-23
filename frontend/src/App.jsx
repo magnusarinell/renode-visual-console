@@ -83,9 +83,9 @@ export default function App() {
       if (Array.isArray(msg.esp32c3_elf_list)) setEsp32c3Elfs(msg.esp32c3_elf_list);
     },
     onOledFrame: (_machine, data) => setOledFrame(data),
-    onPcValue: (_machine, pc, file, line, func) => setPcLog((prev) => [
+    onPcValue: (machine, pc, file, line, func) => setPcLog((prev) => [
       ...prev.slice(-199),
-      { id: crypto.randomUUID(), pc, file, line, func, ts: Date.now() },
+      { id: crypto.randomUUID(), machine, pc, file, line, func, ts: Date.now() },
     ]),
     onScriptLoaded: (scenario) => {
       setActiveScript(scenario);

@@ -214,7 +214,7 @@ async function pollPcValue() {
 function startPcPollLoop() {
   const supported = activeScenario === "daisy" || activeScenario === "esp32c3" || activeScenario === "discovery";
   if (_pcPollTimer || !supported) return;
-  _pcPollTimer = setInterval(() => { pollPcValue().catch(() => {}); }, 2000);
+  _pcPollTimer = setInterval(() => { pollPcValue().catch(() => {}); }, 750);
 }
 
 function stopPcPollLoop() {
@@ -1001,7 +1001,7 @@ async function connectToRobotServer() {
       startGpioPushLoop(machine);
     }
     if (activeScenario === "daisy") startOledPollLoop();
-    if (activeScenario === "daisy" || activeScenario === "esp32c3") startPcPollLoop();
+    if (activeScenario === "daisy" || activeScenario === "esp32c3" || activeScenario === "discovery") startPcPollLoop();
   } catch (err) {
     renodeRunning = false;
     renodeReady = false;
@@ -1126,7 +1126,7 @@ async function handleLoadScript(scenario) {
     startGpioPushLoop(machine);
   }
   if (activeScenario === "daisy") startOledPollLoop();
-  if (activeScenario === "daisy" || activeScenario === "esp32c3") startPcPollLoop();
+  if (activeScenario === "daisy" || activeScenario === "esp32c3" || activeScenario === "discovery") startPcPollLoop();
 }
 
 async function handleClear() {
