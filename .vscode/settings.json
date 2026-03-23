@@ -1,4 +1,9 @@
 {
     "cmake.sourceDirectory": "${workspaceFolder}/zephyr/app",
-    "makefile.configureOnOpen": false
+    "makefile.configureOnOpen": false,
+
+    // ── Zephyr SDK path ─────────────────────────────────────────────
+    // Update the SDK version below if yours differs.
+    // ${env:USERPROFILE} expands to your Windows home directory automatically.
+    "zephyrSdkPath": "${env:USERPROFILE}/zephyr-sdk/zephyr-sdk-0.17.4"
 }

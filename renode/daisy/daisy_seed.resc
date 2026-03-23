@@ -24,6 +24,13 @@ machine LoadPlatformDescription @daisy_stubs.repl
 
 sysbus LoadELF $elf
 
+# ── GDB server ───────────────────────────────────────────────────
+# Exposes a GDB remote-protocol stub on port 3333.
+# Connect with: arm-none-eabi-gdb -ex "target remote localhost:3333" Blink.elf
+# Or use .vscode/launch.json (Cortex-Debug / cppdbg config).
+# The server idles harmlessly when no client is attached.
+machine StartGdbServer 3333
+
 # ── Boot setup ───────────────────────────────────────────────────
 # Default (BOOT_NONE): ELF is flash-linked to 0x08000000.
 # sysbus LoadELF already loaded the vector table into flash memory.

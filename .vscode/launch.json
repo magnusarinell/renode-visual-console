@@ -1,0 +1,57 @@
+{
+  // ── Renode GDB debug configurations ────────────────────────────
+  // Prerequisites:
+  //   1. Start Renode with the correct Daisy ELF loaded
+  //      (npm start → web UI → load_script daisy, pick same ELF as below)
+  //   2. GDB server starts automatically on port 3333 (daisy_seed.resc)
+  //   3. Press F5 and pick which Daisy program to debug
+  //
+  // Requires: marus25.cortex-debug extension
+  // cppdbg is omitted — Cortex-Debug is a strict superset for ARM targets
+  // (adds peripheral register browser, disassembly pane, memory viewer).
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Daisy – Renode GDB",
+      "type": "cortex-debug",
+      "request": "attach",
+      "servertype": "external",
+      "gdbTarget": "localhost:3333",
+      "executable": "${workspaceFolder}/submodules/DaisyExamples/seed/${input:daisyExample}/build/${input:daisyExample}.elf",
+      "gdbPath": "${config:zephyrSdkPath}/arm-zephyr-eabi/bin/arm-zephyr-eabi-gdb",
+      "objdumpPath": "${config:zephyrSdkPath}/arm-zephyr-eabi/bin/arm-zephyr-eabi-objdump",
+      "cwd": "${workspaceFolder}",
+      "runToEntryPoint": "main",
+      "showDevDebugOutput": "none",
+      "preLaunchTask": null
+    }
+  ],
+  "inputs": [
+    {
+      "id": "daisyExample",
+      "type": "pickString",
+      "description": "Which Daisy seed example to debug?",
+      "options": [
+        "Blink",
+        "Button",
+        "Knob",
+        "OLED",
+        "bypass",
+        "Drum",
+        "DSP",
+        "HWTest",
+        "LCD_HD44780",
+        "Logger",
+        "Osc",
+        "QSPI",
+        "Ram",
+        "ReceiveTest",
+        "SDMMC",
+        "USB_CDC",
+        "USB_MIDI",
+        "WavPlayer"
+      ],
+      "default": "Blink"
+    }
+  ]
+}
