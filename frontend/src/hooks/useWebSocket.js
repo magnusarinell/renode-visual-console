@@ -71,7 +71,7 @@ export function useWebSocket({ onStatus, onPinState, onLog, onScriptLoaded, onOl
         }
 
         if (msg.type === "pc_value" && typeof msg.pc === "string") {
-          cbRef.current.onPcValue?.(msg.machine || "", msg.pc);
+          cbRef.current.onPcValue?.(msg.machine || "", msg.pc, msg.file, msg.line, msg.func);
         }
 
 

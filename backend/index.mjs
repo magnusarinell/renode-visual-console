@@ -1,11 +1,14 @@
-import { spawn } from "node:child_process";
+import { spawn, execFile } from "node:child_process";
 import { readFileSync, readdirSync, existsSync, unlinkSync } from "node:fs";
 import http from "node:http";
 import net from "node:net";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import os from "node:os";
+import { promisify } from "node:util";
 import { WebSocketServer } from "ws";
+
+const execFileAsync = promisify(execFile);
 
 const PORT = Number(process.env.RENODE_BRIDGE_PORT || 8787);
 const AUTO_START_RENODE = process.env.AUTO_START_RENODE !== "false";
@@ -27,6 +30,56 @@ const MACHINES = (process.env.RENODE_MACHINES || "board_0,board_1")
 const DEFAULT_MACHINE = MACHINES[0] || "board_0";
 const thisFile = fileURLToPath(import.meta.url);
 const repoRoot = path.resolve(path.dirname(thisFile), "..");
+
+// ─── Resolve addr2line from toolchain wrapper ───────────────────────────────
+// The wrapper scripts in .toolchain-wrappers/ are bash shims that exec the
+// real Zephyr SDK binary. Read one to get the absolute SDK binary path.
+function resolveWrapperTool(toolName) {
+  const wrapperPath = path.join(repoRoot, ".toolchain-wrappers", `arm-none-eabi-${toolName}.exe`);
+  try {
+    const content = readFileSync(wrapperPath, "utf8");
+    const m = content.match(/exec\s+"([^"]+)"/);
+    if (m) return m[1];
+  } catch { /* wrapper not present */ }
+  return null;
+}
+const ADDR2LINE_BIN = resolveWrapperTool("addr2line");
+
+async function resolveAddr2line(pc, elfPath) {
+  if (!ADDR2LINE_BIN || !elfPath || !existsSync(elfPath)) return null;
+  try {
+    const { stdout } = await execFileAsync(
+      ADDR2LINE_BIN,
+      ["-e", elfPath, "-f", "-C", "-s", pc],
+      { timeout: 2000 }
+    );
+    const lines = stdout.trim().split("\n");
+    if (lines.length >= 2) {
+      const func = lines[0].trim();
+      const fileLine = lines[1].trim();
+      const m = fileLine.match(/^(.+):(\d+)/);
+      if (m && m[2] !== "0") return { func, file: m[1], line: Number(m[2]) };
+    }
+  } catch { /* addr2line failed or timed out */ }
+  return null;
+}
+
+function getElfPathForScenario() {
+  function resolveElf(relOrAbs) {
+    const abs = path.isAbsolute(relOrAbs) ? relOrAbs : path.join(repoRoot, relOrAbs);
+    return existsSync(abs) ? abs : "";
+  }
+  if (activeScenario === "daisy") {
+    return resolveElf(_daisyElfOverride || "submodules/DaisyExamples/seed/Blink/build/Blink.elf");
+  }
+  if (activeScenario === "discovery") {
+    return resolveElf(_discoveryElfOverride || "zephyr/build/zephyr/zephyr.elf");
+  }
+  if (activeScenario === "esp32c3") {
+    return resolveElf(_esp32c3ElfOverride || "");
+  }
+  return "";
+}
 const simScript = process.env.RENODE_SCRIPT
   ? path.resolve(repoRoot, process.env.RENODE_SCRIPT)
   : "";
@@ -138,19 +191,29 @@ function stopOledPollLoop() {
 let _pcPollTimer = null;
 
 async function pollPcValue() {
-  if (!renodeReady || !renodeRunning || (activeScenario !== "daisy" && activeScenario !== "esp32c3")) return;
-  const machine = activeMachines[0];
-  if (!machine) return;
-  try {
-    const result = await executeRenodeCommandSilent("cpu PC", machine);
-    const raw = (result.return || result.output || "").trim();
-    const m = raw.match(/0x[0-9a-fA-F]+/);
-    if (m) emit({ type: "pc_value", machine, pc: m[0], ts: Date.now() });
-  } catch { /* ignore */ }
+  const supported = activeScenario === "daisy" || activeScenario === "esp32c3" || activeScenario === "discovery";
+  if (!renodeReady || !renodeRunning || !supported) return;
+  // For Discovery: poll all machines; for others: just first machine.
+  const machines = activeScenario === "discovery" ? activeMachines : [activeMachines[0]];
+  const elfPath = getElfPathForScenario();
+  for (const machine of machines) {
+    if (!machine) continue;
+    try {
+      const result = await executeRenodeCommandSilent("cpu PC", machine);
+      const raw = (result.return || result.output || "").trim();
+      const m = raw.match(/0x[0-9a-fA-F]+/);
+      if (!m) continue;
+      const pc = m[0];
+      // Resolve to source file/line via addr2line (skipped for ESP32-C3 — RISC-V toolchain differs)
+      const src = activeScenario !== "esp32c3" ? await resolveAddr2line(pc, elfPath) : null;
+      emit({ type: "pc_value", machine, pc, ...(src || {}), ts: Date.now() });
+    } catch { /* ignore */ }
+  }
 }
 
 function startPcPollLoop() {
-  if (_pcPollTimer || (activeScenario !== "daisy" && activeScenario !== "esp32c3")) return;
+  const supported = activeScenario === "daisy" || activeScenario === "esp32c3" || activeScenario === "discovery";
+  if (_pcPollTimer || !supported) return;
   _pcPollTimer = setInterval(() => { pollPcValue().catch(() => {}); }, 2000);
 }
 

@@ -19,7 +19,7 @@ let _logSeq = 0;
 
 export default function App() {
   const [view, setView]                       = useState("discovery");
-  const [activeScript, setActiveScript]       = useState("discovery"); // which resc is loaded
+  const [activeScript, setActiveScript]       = useState("none"); // which resc is loaded
   const [selectedDaisyPin, setSelectedDaisyPin] = useState(DAISY_INPUT_PIN);
   const [simRunning, setSimRunning]           = useState(false);
   const [logs, setLogs]                       = useState([]);
@@ -45,7 +45,7 @@ export default function App() {
   const [selectedPinByBoard, setSelectedPinByBoard] = useState(() =>
     Object.fromEntries(BOARDS.map((b) => [b.id, "PA0"]))
   );
-  const [activeLogTab, setActiveLogTab]       = useState("system");
+  const [activeLogTab, setActiveLogTab]       = useState("system"); // "system" | "monitor"
   const [uartFilterByBoard, setUartFilterByBoard] = useState(() =>
     Object.fromEntries(BOARDS.map((b) => [b.id, { usart2: true, usart3: true }]))
   );
@@ -83,9 +83,9 @@ export default function App() {
       if (Array.isArray(msg.esp32c3_elf_list)) setEsp32c3Elfs(msg.esp32c3_elf_list);
     },
     onOledFrame: (_machine, data) => setOledFrame(data),
-    onPcValue: (_machine, pc) => setPcLog((prev) => [
+    onPcValue: (_machine, pc, file, line, func) => setPcLog((prev) => [
       ...prev.slice(-199),
-      { id: crypto.randomUUID(), pc, ts: Date.now() },
+      { id: crypto.randomUUID(), pc, file, line, func, ts: Date.now() },
     ]),
     onScriptLoaded: (scenario) => {
       setActiveScript(scenario);
@@ -405,14 +405,13 @@ export default function App() {
         <LogPanel
           systemLogs={systemLogs}
           monitorLogs={monitorLogs}
-          allUartLogs={allUartLogs}
           pcLog={pcLog}
           activeTab={activeLogTab}
           onTabChange={setActiveLogTab}
         />
 
         <div className="boards-panel">
-          <div className={`boards-content${view !== activeScript ? " boards-inactive" : ""}`}>
+          <div className={`boards-content${(view !== activeScript || !simRunning) ? " boards-inactive" : ""}`}>
             {view === "daisy" ? (
               <DaisySeedBoard
                 outputLevel={outputLevel}

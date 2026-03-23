@@ -126,7 +126,8 @@ h1 {
   display: flex;
   flex-direction: row;
   gap: 1.2rem;
-  align-items: start;
+  align-items: stretch;
+  min-height: 0;
 }
 
 .boards-panel {
@@ -200,7 +201,51 @@ h1 {
   gap: 0;
   position: sticky;
   top: 1rem;
-  max-height: calc(100vh - 140px);
+  height: calc(100vh - 300px);
+  min-height: 0;
+}
+
+.log-pc-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 50%;
+  border: 1px solid #2b3d44;
+  border-radius: 8px;
+  background: #0b1012;
+  padding: 0.9rem;
+  min-height: 0;
+  margin-top: 0.6rem;
+}
+
+.log-pc-panel-header {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #c7dde7;
+  padding-bottom: 0.7rem;
+  margin-bottom: 0.4rem;
+  border-bottom: 1px solid #1f2a2f;
+  flex-shrink: 0;
+}
+
+.log-pc-area {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0.4rem 0.4rem 0.6rem;
+  font-family: "Cascadia Mono", "Consolas", monospace;
+  font-size: 0.75rem;
+  line-height: 1.55;
+  color: #c8dde6;
+  min-height: 0;
+}
+
+.log-pc-area::-webkit-scrollbar { width: 4px; }
+.log-pc-area::-webkit-scrollbar-track { background: transparent; }
+.log-pc-area::-webkit-scrollbar-thumb { background: #1e3a48; border-radius: 2px; }
+
+.log-pc-empty {
+  color: #3a5060;
+  font-style: italic;
 }
 
 .main-tabs {
@@ -272,6 +317,13 @@ h1 {
 .log-subtab-btn.active {
   color: #89f0b9;
   border-bottom-color: #3ca487;
+}
+
+.log-tabs-section {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 50%;
+  min-height: 0;
 }
 
 .log-plain-area {
@@ -1305,6 +1357,39 @@ button:hover {
   color: #3a5a70;
   margin-right: 0.6em;
   font-size: 0.70rem;
+  flex-shrink: 0;
+}
+
+.log-pc-line {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5em;
+  overflow: hidden;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.log-pc-file {
+  color: #4a7a90;
+  font-size: 0.72rem;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.log-pc-func {
+  color: #c8c8c8;
+  font-size: 0.80rem;
+  flex: 1 1 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.log-pc-addr {
+  color: #4a9a72;
+  font-size: 0.72rem;
+  font-family: monospace;
+  flex-shrink: 0;
 }
 
 @media (max-width: 860px) {
