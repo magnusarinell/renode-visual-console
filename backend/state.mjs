@@ -35,8 +35,14 @@ export const state = {
   _gpioPrevState: {},
   gpioWriteOverrides: {},
 
-  // XML-RPC serial queue
+  // XML-RPC serial queues: main queue and a dedicated GPIO queue so
+  // frequent GPIO polls don't block UART drain / monitor commands.
   rpcQueue: Promise.resolve(),
+  gpioRpcQueue: Promise.resolve(),
+
+  // TCP UART streams (Fas 1: ServerSocketTerminal in discovery_dual.resc)
+  tcpUartSockets: new Map(),
+  tcpUartStoppers: new Map(),
 
   // Cached addresses (resolved lazily at runtime)
   _blinkIntervalMsAddr: undefined,

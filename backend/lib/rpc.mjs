@@ -67,6 +67,12 @@ function enqueueRpc(task) {
   return next;
 }
 
+function enqueueGpioRpc(task) {
+  const next = state.gpioRpcQueue.then(task, task);
+  state.gpioRpcQueue = next.catch(() => {});
+  return next;
+}
+
 export function callXmlRpc(keyword, args = []) {
   return enqueueRpc(
     () =>
@@ -113,6 +119,49 @@ export async function executeRenodeCommand(command, machine = DEFAULT_MACHINE) {
 export async function executeRenodeCommandSilent(command, machine = DEFAULT_MACHINE) {
   const args = machine ? [command, machine] : [command];
   return callXmlRpc("ExecuteCommand", args);
+}
+
+/**
+ * Like callXmlRpc but uses the dedicated GPIO queue so GPIO polls don't
+ * block monitor commands or UART drain in the main queue.
+ */
+export function callXmlRpcGpio(keyword, args = []) {
+  return enqueueGpioRpc(
+    () =>
+      new Promise((resolve, reject) => {
+        const body = buildRpcCall(keyword, args);
+        const req = http.request(
+          {
+            hostname: RENODE_ROBOT_HOST,
+            port: RENODE_ROBOT_PORT,
+            path: "/",
+            method: "POST",
+            headers: {
+              "Content-Type": "text/xml",
+              "Content-Length": Buffer.byteLength(body),
+            },
+          },
+          (res) => {
+            let data = "";
+            res.setEncoding("utf8");
+            res.on("data", (chunk) => (data += chunk));
+            res.on("end", () => resolve(parseRpcResponse(data)));
+          }
+        );
+        req.setTimeout(120_000, () => {
+          req.destroy();
+          reject(new Error("XML-RPC timeout"));
+        });
+        req.on("error", reject);
+        req.write(body);
+        req.end();
+      })
+  );
+}
+
+export async function executeRenodeCommandSilentGpio(command, machine = DEFAULT_MACHINE) {
+  const args = machine ? [command, machine] : [command];
+  return callXmlRpcGpio("ExecuteCommand", args);
 }
 
 export async function executeRenodeScript(scriptPath) {

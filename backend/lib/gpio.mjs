@@ -1,6 +1,6 @@
 import { state } from "../state.mjs";
 import { emitLog, emit } from "./broadcast.mjs";
-import { callXmlRpc, executeRenodeCommandSilent } from "./rpc.mjs";
+import { callXmlRpc, executeRenodeCommandSilent, executeRenodeCommandSilentGpio } from "./rpc.mjs";
 import { resolveMachine } from "./utils.mjs";
 
 export const DAISY_PIN_LABELS = {
@@ -74,11 +74,12 @@ export async function handleGpioPulse(msg) {
   if (!state.activeMachines.includes(machine)) return;
   emitLog("system", `GPIO ${formatGpioPin(msg.pin)} \u2192 LOW (pulse, ${machine})`, machine);
 
-  const testerId = state.uartTesterIdByMachine.get(machine);
-  if (testerId) {
-    await callXmlRpc("WaitForNextLineOnUart", [`timeout=0.1`, `testerId=${testerId}`]).catch(() => {});
-  } else {
-    await callXmlRpc("WaitForNextLineOnUart", [`timeout=0.1`]).catch(() => {});
+  if (state.uartTesterReadyByMachine.get(machine)) {
+    const testerId = state.uartTesterIdByMachine.get(machine);
+    await (testerId
+      ? callXmlRpc("WaitForNextLineOnUart", [`timeout=0.1`, `testerId=${testerId}`])
+      : callXmlRpc("WaitForNextLineOnUart", [`timeout=0.1`])
+    ).catch(() => {});
   }
 
   if (!state.activeMachines.includes(machine)) return;
@@ -187,7 +188,7 @@ export async function pushGpioState(machine) {
   if (state.activeScenario === "esp32c3") {
     let result;
     try {
-      result = await executeRenodeCommandSilent("sysbus ReadDoubleWord 0x60004004", machine);
+      result = await executeRenodeCommandSilentGpio("sysbus ReadDoubleWord 0x60004004", machine);
     } catch { return; }
     if (!result || result.status === "FAIL") return;
     const raw = `${result.return || ""} ${result.output || ""}`;
@@ -207,7 +208,7 @@ export async function pushGpioState(machine) {
   for (const [port, pins] of Object.entries(getGpioPushPorts())) {
     let result;
     try {
-      result = await executeRenodeCommandSilent(`sysbus.gpioPort${port} GetGPIOs`, machine);
+      result = await executeRenodeCommandSilentGpio(`sysbus.gpioPort${port} GetGPIOs`, machine);
     } catch { return; }
     if (!result || result.status === "FAIL") continue;
     const gpioMap = parseGpioList(result.return || result.output || "");
@@ -229,7 +230,7 @@ export async function pushGpioState(machine) {
 export function startGpioPushLoop(machine) {
   const m = resolveMachine(machine);
   if (state.gpioScanTimers.has(m)) return;
-  const id = setInterval(() => pushGpioState(m).catch(() => {}), 100);
+  const id = setInterval(() => pushGpioState(m).catch(() => {}), 50);
   state.gpioScanTimers.set(m, id);
 }
 

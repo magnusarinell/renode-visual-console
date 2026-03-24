@@ -1,10 +1,11 @@
 import path from "node:path";
 import { unlinkSync } from "node:fs";
 import { state } from "../state.mjs";
-import { repoRoot, RENODE_ROBOT_HOST, RENODE_ROBOT_PORT, DEFAULT_MACHINE, DAISY_ELF, simScriptPosix, MACHINES } from "../config.mjs";
+import { repoRoot, RENODE_ROBOT_HOST, RENODE_ROBOT_PORT, DEFAULT_MACHINE, DAISY_ELF, simScriptPosix, MACHINES, UART_SOCKET_PORT_BASE } from "../config.mjs";
 import { emit, emitLog } from "./broadcast.mjs";
 import { callXmlRpc, executeRenodeCommandSilent, executeRenodeScript } from "./rpc.mjs";
 import { startUartStreaming, drainUartLines, startUartDrainLoop, stopUartDrainLoops, startHubStreaming, startHubDrainLoop, stopHubDrainLoops } from "./uart.mjs";
+import { startTcpUartStream, stopAllTcpUartStreams } from "./tcp-uart.mjs";
 import { startGpioPushLoop, stopGpioPushLoops } from "./gpio.mjs";
 import { startOledPollLoop, stopOledPollLoop, startPcPollLoop, stopPcPollLoop, OLED_FRAME_PATH } from "./polls.mjs";
 import { sleep } from "./utils.mjs";
@@ -37,6 +38,7 @@ export async function connectToRobotServer() {
   state.uartTesterReadyByMachine.clear();
   state.uartTesterIdByMachine.clear();
   stopUartDrainLoops();
+  stopAllTcpUartStreams();
   state.hubTesterReadyByMachine.clear();
   state.hubTesterIdByMachine.clear();
   stopHubDrainLoops();
@@ -65,15 +67,21 @@ export async function connectToRobotServer() {
     emit({ type: "status", running: true, ts: Date.now() });
 
     for (const machine of state.activeMachines) {
-      await startUartStreaming(machine);
-      if (state.activeScenario === "daisy" || state.activeScenario === "esp32c3") {
-        const startRes = await callXmlRpc("ExecuteCommand", ["start"]).catch((e) => ({ status: "FAIL", error: e.message }));
-        emitLog("system", `Simulation start: ${startRes.status}${startRes.error ? " — " + startRes.error : ""}`, machine);
+      if (state.activeScenario === "discovery") {
+        // Use event-driven TCP stream instead of XML-RPC polling for usart3.
+        const portIndex = state.activeMachines.indexOf(machine);
+        startTcpUartStream(machine, UART_SOCKET_PORT_BASE + portIndex);
+      } else {
+        await startUartStreaming(machine);
+        if (state.activeScenario === "daisy" || state.activeScenario === "esp32c3") {
+          const startRes = await callXmlRpc("ExecuteCommand", ["start"]).catch((e) => ({ status: "FAIL", error: e.message }));
+          emitLog("system", `Simulation start: ${startRes.status}${startRes.error ? " — " + startRes.error : ""}`, machine);
+        }
+        const initDrainLines   = state.activeScenario === "daisy" ? 15 : (state.activeScenario === "esp32c3" ? 5 : 15);
+        const initDrainTimeout = state.activeScenario === "daisy" ? "0.05" : (state.activeScenario === "esp32c3" ? "2.0" : "0.05");
+        await drainUartLines(machine, initDrainLines, initDrainTimeout);
+        startUartDrainLoop(machine);
       }
-      const initDrainLines   = state.activeScenario === "daisy" ? 15 : (state.activeScenario === "esp32c3" ? 5 : 15);
-      const initDrainTimeout = state.activeScenario === "daisy" ? "0.05" : (state.activeScenario === "esp32c3" ? "2.0" : "0.05");
-      await drainUartLines(machine, initDrainLines, initDrainTimeout);
-      startUartDrainLoop(machine);
       if (state.activeHubPeripheral) {
         await startHubStreaming(machine);
         startHubDrainLoop(machine);
@@ -89,8 +97,7 @@ export async function connectToRobotServer() {
     state.renodeReady = false;
     state.uartTesterReadyByMachine.clear();
     state.uartTesterIdByMachine.clear();
-    stopUartDrainLoops();
-    state.hubTesterReadyByMachine.clear();
+    stopUartDrainLoops();    stopAllTcpUartStreams();    state.hubTesterReadyByMachine.clear();
     state.hubTesterIdByMachine.clear();
     stopHubDrainLoops();
     stopGpioPushLoops();
@@ -120,6 +127,7 @@ export async function handleLoadScript(scenario) {
 
   stopUartDrainLoops();
   stopHubDrainLoops();
+  stopAllTcpUartStreams();
   stopGpioPushLoops();
   stopOledPollLoop();
   stopPcPollLoop();
@@ -187,15 +195,20 @@ export async function handleLoadScript(scenario) {
   emit({ type: "script_loaded", scenario, machines: state.activeMachines, ts: Date.now() });
 
   for (const machine of state.activeMachines) {
-    await startUartStreaming(machine);
-    if (state.activeScenario === "daisy" || state.activeScenario === "esp32c3") {
-      const startRes = await callXmlRpc("ExecuteCommand", ["start"]).catch((e) => ({ status: "FAIL", error: e.message }));
-      emitLog("system", `Simulation start: ${startRes.status}${startRes.error ? " — " + startRes.error : ""}`, machine);
+    if (state.activeScenario === "discovery") {
+      const portIndex = state.activeMachines.indexOf(machine);
+      startTcpUartStream(machine, UART_SOCKET_PORT_BASE + portIndex);
+    } else {
+      await startUartStreaming(machine);
+      if (state.activeScenario === "daisy" || state.activeScenario === "esp32c3") {
+        const startRes = await callXmlRpc("ExecuteCommand", ["start"]).catch((e) => ({ status: "FAIL", error: e.message }));
+        emitLog("system", `Simulation start: ${startRes.status}${startRes.error ? " — " + startRes.error : ""}`, machine);
+      }
+      const drainTimeout = state.activeScenario === "daisy" ? "0.0005" : "2.0";
+      const drainLines   = state.activeScenario === "daisy" ? 2 : 5;
+      await drainUartLines(machine, drainLines, drainTimeout);
+      startUartDrainLoop(machine);
     }
-    const drainTimeout = state.activeScenario === "daisy" ? "0.0005" : "2.0";
-    const drainLines   = state.activeScenario === "daisy" ? 2 : 5;
-    await drainUartLines(machine, drainLines, drainTimeout);
-    startUartDrainLoop(machine);
     if (state.activeHubPeripheral) {
       await startHubStreaming(machine);
       startHubDrainLoop(machine);
@@ -212,6 +225,7 @@ export async function handleClear() {
   emitLog("system", "Clearing simulation\u2026");
   stopUartDrainLoops();
   stopHubDrainLoops();
+  stopAllTcpUartStreams();
   stopGpioPushLoops();
   stopOledPollLoop();
   stopPcPollLoop();

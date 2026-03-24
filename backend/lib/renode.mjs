@@ -7,6 +7,7 @@ import {
 } from "../config.mjs";
 import { emit, emitLog } from "./broadcast.mjs";
 import { startUartStreaming, startUartDrainLoop, drainUartLines, stopUartDrainLoops } from "./uart.mjs";
+import { stopAllTcpUartStreams } from "./tcp-uart.mjs";
 import { connectToRobotServer } from "./scenarios.mjs";
 import { resolveMachine } from "./utils.mjs";
 import { callXmlRpc, executeRenodeCommand } from "./rpc.mjs";
@@ -110,6 +111,7 @@ export function stopRenode() {
     state.uartTesterReadyByMachine.clear();
     state.uartTesterIdByMachine.clear();
     stopUartDrainLoops();
+    stopAllTcpUartStreams();
     state.renodeRunning = false;
     state.renodeReady = false;
     emit({ type: "status", running: false, ts: Date.now() });

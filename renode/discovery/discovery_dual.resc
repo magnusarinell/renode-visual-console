@@ -6,6 +6,8 @@ machine LoadPlatformDescription @platforms/boards/stm32f4_discovery-kit.repl
 showAnalyzer sysbus.usart3
 sysbus LoadELF $elf
 connector Connect sysbus.usart2 uartHub
+emulation CreateServerSocketTerminal 12345 "uartTerm0" false
+connector Connect sysbus.usart3 uartTerm0
 machine StartGdbServer 3334
 
 mach create "board_1"
@@ -13,6 +15,8 @@ machine LoadPlatformDescription @platforms/boards/stm32f4_discovery-kit.repl
 showAnalyzer sysbus.usart3
 sysbus LoadELF $elf
 connector Connect sysbus.usart2 uartHub
+emulation CreateServerSocketTerminal 12346 "uartTerm1" false
+connector Connect sysbus.usart3 uartTerm1
 machine StartGdbServer 3335
 
 emulation SetGlobalQuantum "0.000025"

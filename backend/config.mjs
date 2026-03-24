@@ -28,6 +28,10 @@ export const DAISY_ELF = process.env.DAISY_ELF || "";
 export const renodeCmd = process.env.RENODE_CMD || "renode";
 export const LOG_BUFFER_MAX = 500;
 
+// TCP ports for Renode ServerSocketTerminal (one per discovery board).
+// Matches the ports in renode/discovery/discovery_dual.resc.
+export const UART_SOCKET_PORT_BASE = Number(process.env.UART_SOCKET_PORT_BASE || 12345);
+
 export const simScript = process.env.RENODE_SCRIPT
   ? path.resolve(repoRoot, process.env.RENODE_SCRIPT)
   : "";
