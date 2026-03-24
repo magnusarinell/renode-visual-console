@@ -33,6 +33,7 @@ export default function App() {
   const bbModeRef                              = useRef("knob");
   const [elfFiles, setElfFiles]               = useState([]);
   const [selectedElf, setSelectedElf]         = useState("");
+  const [activatedElf, setActivatedElf]       = useState("");
   const [discoveryElfs, setDiscoveryElfs]     = useState([]);
   const [selectedDiscoveryElf, setSelectedDiscoveryElf] = useState("");
   const [esp32c3Elfs, setEsp32c3Elfs]         = useState([]);
@@ -56,13 +57,14 @@ export default function App() {
     Object.fromEntries(BOARDS.map((b) => [b.id, {}]))
   );
 
-  // ── Breadboard mode: derived from selected ELF filename ─────────────────
+  // ── Breadboard mode: derived from activated ELF filename ─────────────────
+  // Only updates when the user clicks Activate, not on dropdown selection.
   // "knob"   → pot + LED indicator (PA2 is firmware output)
   // "button" → tact switch         (PA2 is firmware input)
   // "oled"   → only OLED display
   // "blink"  → empty breadboard
   const bbMode = (() => {
-    const name = (selectedElf || "").toLowerCase();
+    const name = (activatedElf || "").toLowerCase();
     if (name.includes("knob"))   return "knob";
     if (name.includes("button")) return "button";
     if (name.includes("oled"))   return "oled";
@@ -249,6 +251,7 @@ export default function App() {
       view === "daisy" ? selectedElf :
       view === "esp32c3" ? selectedEsp32c3Elf :
       selectedDiscoveryElf;
+    if (view === "daisy") setActivatedElf(elf);
     if (elf) {
       send({ type: "select_binary", elf, scenario: view });
     } else {
