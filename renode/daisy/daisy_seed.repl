@@ -1,53 +1,13 @@
-// Electrosmith Daisy Seed platform description for Renode
-//
-// The Daisy Seed uses an STM32H750IBK6 (BGA144), which is the value-line
-// variant of the STM32H743 family — identical core (Cortex-M7) and peripherals,
-// with 128 KB of internal flash instead of 2 MB.
-//
-// For simulation we base on stm32h743.repl (same peripheral set) and add the
-// two external memories present on the Daisy Seed hardware:
-//   • IS25LP064A QSPI NOR flash  — code XIP region (0x90000000)
-//   • IS42S16400J-6BLI SDRAM     — audio/heap RAM   (0xC0000000)
-//
-// libDaisy ELFs built with APP_TYPE = BOOT_SRAM link to SRAM at 0x24000000.
-// The script (daisy_seed.resc) sets VTOR, SP and PC from the vector table
-// after loading the ELF.
-
 using "platforms/cpus/stm32h743.repl"
 
-// ── External memories ────────────────────────────────────────────
-
-// External QSPI NOR flash
-// IS25LP064A: 64 Mbit (8 MB) on Daisy Seed v1.x; larger on v1.10+
-// Model 64 MB to cover all variants.
 qspiFlash: Memory.MappedMemory @ sysbus 0x90000000
     size: 0x4000000
 
-// External SDRAM is already provided by stm32h743.repl as sdramBank1 @ 0xC0000000 (256 MB)
-// No override needed.
-
-// ── Peripheral stubs ─────────────────────────────────────────────
-// libDaisy's System::Init() aggressively configures clocks, power,
-// and flash wait-states, then polls ready-flags.  Renode's built-in
-// models do not set these ready bits, so firmware hangs in busy-wait.
-//
-// The actual Python stub peripherals are registered by daisy_seed.resc
-// AFTER loading this .repl — the script removes the built-in RCC/PWR/
-// FLASH/SYSCFG models and replaces them with our stubs.
-
-// ── GPIO / LED ───────────────────────────────────────────────────
-
-// Onboard user LED on PC7 (GPIO_ACTIVE_HIGH).
-// Registers a GPIO connection so that gpioPortC GetGPIOs reports
-// PC7's output state when driven by firmware.
 led0: Miscellaneous.LED @ gpioPortC
 
 gpioPortC:
     7 -> led0@0
 
-// PA2 is the external breadboard LED driven by soft-PWM in the Knob example.
-// Registering a connection here makes gpioPortA GetGPIOs return PA2's output
-// state so the backend can sample it for the rolling duty-cycle average.
 led_pa2: Miscellaneous.LED @ gpioPortA
 
 gpioPortA:

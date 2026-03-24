@@ -1,35 +1,27 @@
-// Python peripheral stubs for libDaisy clock/power/flash init.
-// rcc and flash are unregistered by daisy_seed.resc before this file is loaded.
-
-
 rcc_stub: Python.PythonPeripheral @ sysbus 0x58024400
     size: 0x400
-    filename: "C:/git/renode-visual-console/renode/daisy/stm32h7_rcc_stub.py"
+    filename: "C:/git/renode-visual-console/renode/daisy/stubs/stm32h7_rcc_stub.py"
 
 pwr_stub: Python.PythonPeripheral @ sysbus 0x58024800
     size: 0x400
-    filename: "C:/git/renode-visual-console/renode/daisy/stm32h7_pwr_stub.py"
+    filename: "C:/git/renode-visual-console/renode/daisy/stubs/stm32h7_pwr_stub.py"
 
 flash_stub: Python.PythonPeripheral @ sysbus 0x52002000
     size: 0x400
-    filename: "C:/git/renode-visual-console/renode/daisy/stm32h7_flash_stub.py"
+    filename: "C:/git/renode-visual-console/renode/daisy/stubs/stm32h7_flash_stub.py"
 
 syscfg_stub: Python.PythonPeripheral @ sysbus 0x58000400
     size: 0x400
-    filename: "C:/git/renode-visual-console/renode/daisy/stm32h7_syscfg_stub.py"
+    filename: "C:/git/renode-visual-console/renode/daisy/stubs/stm32h7_syscfg_stub.py"
 
 qspi_stub: Python.PythonPeripheral @ sysbus 0x52005000
     size: 0x400
-    filename: "C:/git/renode-visual-console/renode/daisy/stm32h7_qspi_stub.py"
+    filename: "C:/git/renode-visual-console/renode/daisy/stubs/stm32h7_qspi_stub.py"
 
-// ADC1/ADC2 master-slave stub — replaces STM32F0_ADC whose register layout
-// is incompatible with the STM32H7 HAL (CHSELR vs PCSEL/SQR).
-// Without this, firmware hangs in HAL_ADCEx_Calibration_Start().
 adc_stub: Python.PythonPeripheral @ sysbus 0x40022000
     size: 0x400
-    filename: "C:/git/renode-visual-console/renode/daisy/stm32h7_adc_stub.py"
+    filename: "C:/git/renode-visual-console/renode/daisy/stubs/stm32h7_adc_stub.py"
 
-// SPI1 stub — intercepts SSD1306 traffic and writes framebuffer to SRAM4
 spi1_stub: Python.PythonPeripheral @ sysbus 0x40013000
     size: 0x400
-    filename: "C:/git/renode-visual-console/renode/daisy/ssd1306_spi_stub.py"
+    filename: "C:/git/renode-visual-console/renode/daisy/stubs/ssd1306_spi_stub.py"

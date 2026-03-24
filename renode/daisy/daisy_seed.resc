@@ -1,54 +1,24 @@
 path add $ORIGIN
 
-# ── Configurable ELF path ─────────────────────────────────────────
-# Override from backend / CLI:  $elf=@/path/to/your.elf
-# Default: Blink example from the local DaisyExamples clone.
 $elf ?= $ORIGIN/../../submodules/DaisyExamples/seed/Blink/build/Blink.elf
 
 mach create "daisy_0"
 machine LoadPlatformDescription @daisy_seed.repl
 
-# ── Replace built-in peripheral models with Python stubs ─────────
-# The base stm32h743.repl declares rcc, flash, syscfg, and qspi but
-# those models don't set ready-flags that libDaisy polls.
-# Remove them and register Python peripherals that force the bits.
 sysbus Unregister rcc
 sysbus Unregister flashController
 sysbus Unregister syscfg
 sysbus Unregister qspi
 sysbus Unregister adcM1S2
 
-# Load Python stubs from daisy_stubs.repl (inline script: blocks avoid
-# $ORIGIN expansion issues that affect filename: inside LoadPlatformDescriptionFromString).
 machine LoadPlatformDescription @daisy_stubs.repl
 
 sysbus LoadELF $elf
 
-# ── GDB server ───────────────────────────────────────────────────
-# Exposes a GDB remote-protocol stub on port 3333.
-# Connect with: arm-none-eabi-gdb -ex "target remote localhost:3333" Blink.elf
-# Or use .vscode/launch.json (Cortex-Debug / cppdbg config).
-# The server idles harmlessly when no client is attached.
 machine StartGdbServer 3333
 
-# ── Boot setup ───────────────────────────────────────────────────
-# Default (BOOT_NONE): ELF is flash-linked to 0x08000000.
-# sysbus LoadELF already loaded the vector table into flash memory.
-# Set VTOR to the flash base so the CPU finds SP and reset-handler.
 cpu VectorTableOffset 0x08000000
-
-# If $elf is a BOOT_SRAM image (linked to 0x24000000), override
-# VTOR and set SP/PC manually by commenting out the line above and
-# uncommenting the three lines below:
-#cpu VectorTableOffset 0x24000000
-#cpu SetRegisterUnsafe 13 `sysbus ReadDoubleWord 0x24000000`
-#cpu PC `sysbus ReadDoubleWord 0x24000004`
 
 emulation SetGlobalQuantum "0.000025"
 emulation SetGlobalSerialExecution True
 
-# showAnalyzer is intentionally omitted — the backend owns the TerminalTester.
-
-# NOTE: 'start' is intentionally omitted here.
-# The backend creates the UART tester BEFORE starting the machine so that
-# firmware startup messages (printk) are captured by the tester.
