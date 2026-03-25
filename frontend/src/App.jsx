@@ -262,10 +262,10 @@ export default function App() {
     return simRunning ? "Renode: Running" : "Renode: Stopped";
   }, [socketState, simRunning]);
 
-  // Per-board last PC log entry
-  const lastPcByBoard = useMemo(
+  // Per-board PC log entries
+  const pcLogsByBoard = useMemo(
     () => Object.fromEntries(
-      BOARDS.map((b) => [b.id, pcLog.filter((e) => e.machine === b.id).at(-1) ?? null])
+      BOARDS.map((b) => [b.id, pcLog.filter((e) => e.machine === b.id)])
     ),
     [pcLog]
   );
@@ -372,20 +372,8 @@ export default function App() {
             ) : (
               <div className="boards-tab-content">
               {BOARDS.map((board) => {
-                const lastPc = lastPcByBoard[board.id];
                 return (
                   <div key={board.id} className="board-column-wrap">
-                    <div className="board-debug-line">
-                      {lastPc ? (
-                        <>
-                          <span className="log-plain-ts">{new Date(lastPc.ts).toLocaleTimeString()}</span>
-                          <span className="log-plain-board">[{lastPc.machine}]</span>
-                          {lastPc.file && <span className="log-pc-file">{lastPc.file.split("/").pop()}:{lastPc.line}</span>}
-                          {lastPc.func && <span className="log-pc-func">{lastPc.func}</span>}
-                          <span className="log-pc-addr">{lastPc.pc}</span>
-                        </>
-                      ) : <span className="log-pc-empty">\u2014</span>}
-                    </div>
                     <BoardCard
                       board={board}
                       pinStates={pinStatesByBoard[board.id] || buildPinMap()}
@@ -400,6 +388,8 @@ export default function App() {
                         )
                       }
                       uartLogs={uartLogsByBoard[board.id] || []}
+                      pcLogs={pcLogsByBoard[board.id] || []}
+                      onClearPcLogs={() => setPcLog((prev) => prev.filter((e) => e.machine !== board.id))}
                       voltage={voltageByBoard[board.id] || {}}
                       onVoltageChange={(pin, v) =>
                         setVoltageByBoard((prev) => ({

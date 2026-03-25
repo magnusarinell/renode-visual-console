@@ -1058,21 +1058,27 @@ h1 {
   margin-bottom: 0.3rem;
 }
 
-.uart-card-title {
-  font-size: 0.8rem;
+.uart-tab-btn {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: #4a7a90;
+  font-size: 0.78rem;
   font-weight: 600;
-  color: #89f0b9;
-  border-bottom: 2px solid #3ca487;
   padding: 0.45rem 1.1rem;
+  cursor: pointer;
   letter-spacing: 0.03em;
   white-space: nowrap;
+  transition: color 0.15s;
 }
 
-.uart-card-subtitle {
-  font-size: 0.75rem;
-  color: #4a7a90;
-  padding-bottom: 0.45rem;
-  flex: 1;
+.uart-tab-btn:hover {
+  color: #89d9b0;
+}
+
+.uart-tab-btn.active {
+  color: #89f0b9;
+  border-bottom-color: #3ca487;
 }
 
 .uart-filter-bar {
