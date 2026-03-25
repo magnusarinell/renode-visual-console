@@ -48,7 +48,7 @@ int main(void)
         /* B1 press: send TOGGLE_1 to the other board via inter-board UART. */
         if (rising_edge) {
             if (app_uart_send("TOGGLE_1\n", 9) >= 0) {
-                printk("[B1] Sending TOGGLE_1\n");
+                printk("[B1] Sending TOGGLE_1 on USART1\n");
             }
         }
 

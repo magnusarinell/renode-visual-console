@@ -1044,38 +1044,42 @@ h1 {
 }
 
 .uart-card {
-  border: 1px solid #2b3d44;
-  border-radius: 8px;
-  /* margin-top: 0.6rem; */
-  background: #0b1012;
-  padding: 0.9rem;
   display: flex;
   flex-direction: column;
   height: 220px;
   flex-shrink: 0;
 }
 
-.uart-card header {
+.uart-card-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin: 0 0 0.7rem;
-  padding-bottom: 0.7rem;
-  border-bottom: 1px solid #1f2a2f;
   gap: 0.5rem;
+  border-bottom: 1px solid #1e2e35;
+  margin-bottom: 0.3rem;
 }
 
 .uart-card-title {
-  font-size: 0.88rem;
+  font-size: 0.8rem;
   font-weight: 600;
-  color: #c7dde7;
+  color: #89f0b9;
+  border-bottom: 2px solid #3ca487;
+  padding: 0.45rem 1.1rem;
+  letter-spacing: 0.03em;
   white-space: nowrap;
+}
+
+.uart-card-subtitle {
+  font-size: 0.75rem;
+  color: #4a7a90;
+  padding-bottom: 0.45rem;
+  flex: 1;
 }
 
 .uart-filter-bar {
   display: flex;
   gap: 0.3rem;
   flex-shrink: 0;
+  padding-bottom: 0.3rem;
 }
 
 .uart-filter-btn {

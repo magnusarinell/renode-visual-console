@@ -1,16 +1,100 @@
 ---
 name: firmware-build
-description: 'Guide for building and troubleshooting Zephyr firmware for the STM32F4 Discovery Kit. Use when: building firmware, running west build, cross-compiling, setting up Zephyr workspace, initialising west, handling CMake or compile errors, adding Kconfig options, or modifying device tree overlays.'
+description: 'Guide for building and troubleshooting Zephyr firmware for the STM32F411RE Nucleo. Use when: building firmware, running west build, cross-compiling, setting up Zephyr workspace, initialising west, handling CMake or compile errors, adding Kconfig options, or modifying device tree overlays.'
 ---
 
-# Firmware Build – STM32F4 Discovery Kit
+# Firmware Build – STM32F411RE Nucleo
 
 ## When to Use
 - Setting up the Zephyr workspace for the first time
-- Building firmware (`npm run build` / `bash dev.sh build-disco`)
+- Building firmware (`npm run build:nucleo` / `bash dev.sh build-nucleo`)
 - Diagnosing CMake, west, or compiler errors
 - Adding or changing Kconfig options (`prj.conf`)
-- Modifying the device tree overlay (`boards/stm32f4_disco.overlay`)
+- Modifying the device tree overlay (`boards/nucleo_f411re.overlay`)
+
+## Prerequisites
+
+Ensure these are installed and in `PATH`:
+- Zephyr SDK 0.17.x (extracted to any user-writable folder)
+- `west` (`pip install --user west`)
+- CMake ≥ 3.20
+- Git Bash (Windows)
+
+Environment variable required: `ZEPHYR_SDK_INSTALL_DIR`
+
+```bash
+export ZEPHYR_SDK_INSTALL_DIR=~/zephyr-sdk/zephyr-sdk-0.17.4
+```
+
+## One-Time Workspace Setup
+
+```bash
+cd zephyr
+west init -l app        # initialise from local manifest
+west update             # fetch Zephyr + modules (~2 GB)
+west zephyr-export      # register CMake packages
+```
+
+## Build Firmware
+
+```bash
+# Preferred (from repo root):
+npm run build:nucleo
+
+# Or via dev.sh:
+bash dev.sh build-nucleo
+
+# Or directly:
+cd zephyr
+west build -p always -b nucleo_f411re app
+```
+
+Build output: `zephyr/build/zephyr/zephyr.elf`
+
+## Clean Build
+
+```bash
+bash dev.sh rebuild   # clean then build
+bash dev.sh clean     # remove zephyr/build/ only
+```
+
+## Common Errors
+
+### `west: command not found`
+Add Python user scripts to PATH:
+```bash
+export PATH="$HOME/AppData/Roaming/Python/Python313/Scripts:$PATH"
+```
+Or add permanently to `~/.bashrc`.
+
+### `ZEPHYR_SDK_INSTALL_DIR not set`
+Set the env variable pointing to your extracted SDK directory.
+
+### CMake error: compiler not found
+Verify `ZEPHYR_SDK_INSTALL_DIR` points to the correct SDK version (0.17.x).
+Run `west zephyr-export` again.
+
+### `DT_CHOSEN_Z_CONSOLE` undefined / console device error
+The `nucleo_f411re` base DTS already defines USART2 as the console — no overlay change needed.
+
+## Modifying Kconfig (`prj.conf`)
+
+Common options:
+```kconfig
+CONFIG_GPIO=y
+CONFIG_UART_INTERRUPT_DRIVEN=y
+CONFIG_RING_BUFFER=y
+CONFIG_PINCTRL=y
+```
+
+After changing `prj.conf`, `west build -p always` (pristine build) ensures the config is reapplied cleanly.
+
+## Modifying Device Tree (`boards/nucleo_f411re.overlay`)
+
+- USART2 (debug/console, PA2/PA3): defined in base DTS, always enabled
+- USART1 (inter-board, PB6/PB7): defined in base DTS with `status = "okay"`
+- Extra LEDs added as `extra_leds` child nodes: `extra_led0` (PB12), `extra_led1` (PB13), `extra_led2` (PB14)
+
 
 ## Prerequisites
 

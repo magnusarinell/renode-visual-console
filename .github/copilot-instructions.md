@@ -1,4 +1,4 @@
-# Copilot Instructions – STM32F4 Disco Zephyr + Renode Project
+# Copilot Instructions – STM32F411RE Nucleo Zephyr + Renode Project
 
 ## Language
 - **Communication**: Always think and respond to the user in **Swedish**.
@@ -6,16 +6,16 @@
 
 
 ## Project Context
-- Firmware: **C** (Zephyr RTOS), targeting **STM32F4 Discovery Kit** (`stm32f4_disco`, Cortex-M4)
-- Simulation: **Renode** dual-board setup — two `stm32f4_disco` instances connected via UART Hub
+- Firmware: **C** (Zephyr RTOS), targeting **STM32F411RE Nucleo** (`nucleo_f411re`, Cortex-M4)
+- Simulation: **Renode** dual-board setup — two `nucleo_f411re` instances with independent UART terminals
 - Backend: **Node.js** WebSocket bridge between web UI and Renode robot server (XML-RPC)
 - Frontend: **React + Vite** web UI for monitoring and controlling simulated boards
 - Environment: Corporate Windows, Git Bash, no admin rights, no Docker
 
 ## Build & Run Commands
-- **`npm run build`**: Build firmware for Renode (`west build -b stm32f4_disco`)
+- **`npm run build`**: Build firmware for Renode (`west build -b nucleo_f411re`)
 - **`npm start`**: Start Renode robot server + backend + frontend concurrently
-- **`bash dev.sh build-disco`**: Build firmware (same as `npm run build`)
+- **`bash dev.sh build-nucleo`**: Build firmware (same as `npm run build:nucleo`)
 - **`bash dev.sh renode`**: Build + launch Renode standalone
 - **`bash dev.sh rebuild`**: Clean then build
 

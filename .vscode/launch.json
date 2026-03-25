@@ -1,10 +1,10 @@
 {
   // ── Renode GDB debug configurations ────────────────────────────
   // Prerequisites:
-  //   1. Start Renode with the correct Daisy ELF loaded
-  //      (npm start → web UI → load_script daisy, pick same ELF as below)
-  //   2. GDB server starts automatically on port 3333 (daisy_seed.resc)
-  //   3. Press F5 and pick which Daisy program to debug
+  //   1. Start Renode with the correct ELF loaded
+  //      (npm start → web UI → pick scenario and ELF)
+  //   2. GDB server starts automatically on the port listed below
+  //   3. Press F5 and pick which program to debug
   //
   // Requires: marus25.cortex-debug extension
   // cppdbg is omitted — Cortex-Debug is a strict superset for ARM targets
@@ -12,8 +12,8 @@
   //
   // Port map:
   //   3333 → Daisy (daisy_seed.resc)
-  //   3334 → Discovery board_0 (discovery_dual.resc)
-  //   3335 → Discovery board_1 (discovery_dual.resc)
+  //   3334 → Nucleo board_0 (nucleo_dual.resc)
+  //   3335 → Nucleo board_1 (nucleo_dual.resc)
   "version": "0.2.0",
   "configurations": [
     {
@@ -30,9 +30,9 @@
       "showDevDebugOutput": "none"
     },
     {
-      // Discovery board_0 (Cortex-M4, Zephyr firmware)
-      // ELF: zephyr/build/zephyr/zephyr.elf  (run npm run build first)
-      "name": "Discovery board_0 – Renode GDB",
+      // Nucleo board_0 (Cortex-M4, Zephyr firmware)
+      // ELF: zephyr/build/zephyr/zephyr.elf  (run npm run build:nucleo first)
+      "name": "Nucleo board_0 – Renode GDB",
       "type": "cortex-debug",
       "request": "attach",
       "servertype": "external",
@@ -45,8 +45,8 @@
       "showDevDebugOutput": "none"
     },
     {
-      // Discovery board_1 (Cortex-M4, Zephyr firmware)
-      "name": "Discovery board_1 – Renode GDB",
+      // Nucleo board_1 (Cortex-M4, Zephyr firmware)
+      "name": "Nucleo board_1 – Renode GDB",
       "type": "cortex-debug",
       "request": "attach",
       "servertype": "external",

@@ -10,7 +10,7 @@ The idea is simple: run your firmware inside Renode, and get a live visual conso
 
 Two simulation scenarios are included out of the box:
 
-**STM32F4 Discovery (dual-board)** — Two `stm32f4_disco` boards running simultaneously, connected via a UART Hub for inter-board communication. Firmware is written in **C on Zephyr RTOS** and features LED animation modes, button input, ADC-controlled speed, and cross-board interrupt signalling.
+**STM32F411RE Nucleo (dual-board)** — Two `nucleo_f411re` boards running simultaneously, connected via separate UART terminals for inter-board communication. Firmware is written in **C on Zephyr RTOS** and features LED animation modes, button input, and cross-board interrupt signalling.
 
 **Electrosmith Daisy Seed** — Real, unmodified **libDaisy** example applications running inside Renode on a simulated **STM32H750IBK6** (Cortex-M7). Switch between firmwares (Blink, Button, Knob, OLED) without recompiling: the breadboard panel adapts to show exactly the components each firmware uses — a potentiometer and LED for Knob, a tact switch for Button, an SSD1306 OLED display for OLED, and an empty board for Blink. Python peripheral stubs provide the hardware-init responses that Renode's built-in models omit for the H7 family (RCC, PWR, FLASH, ADC, SPI), so the same ELFs that run on real hardware boot and execute correctly in simulation.
 
@@ -27,19 +27,13 @@ Use cases include:
 
 ## Screenshots
 
-### STM32F4 Discovery — Dashboard Overview
+### STM32F411RE Nucleo — Dashboard Overview
 ![Dashboard](docs/screenshots/dashboard.png)
 
-### STM32F4 Discovery — Board Card with LEDs and Pin Headers
+### STM32F411RE Nucleo — Board Card with LEDs and Pin Headers
 ![Board Card](docs/screenshots/board_card.png)
 
-### STM32F4 Discovery — Pin Control and GPIO Injection
-![Pin Control](docs/screenshots/pin_control.png)
-
-### STM32F4 Discovery — Analog Slider (ADC Voltage Injection)
-![Analog Slider](docs/screenshots/analog_slider.png)
-
-### STM32F4 Discovery — UART Log (Live Output from Both Boards)
+### STM32F411RE Nucleo — UART Log (Live Output from Both Boards)
 ![UART Log](docs/screenshots/uart_log.png)
 
 ---
@@ -64,12 +58,11 @@ Use cases include:
 
 ## Features
 
-### STM32F4 Discovery (dual-board)
-- **Dual-board simulation** – Two STM32F4 Discovery boards running simultaneously in Renode, connected via a shared UART Hub for inter-board communication
-- **LED animation modes** – Three firmware modes (BLINK, CHASE, SHOWCASE) controlled by button press; speed adjustable via ADC voltage
+### STM32F411RE Nucleo (dual-board)
+- **Dual-board simulation** – Two STM32F411RE Nucleo boards running simultaneously in Renode, each with separate UART terminals
+- **LED animation modes** – Three firmware modes (BLINK, CHASE, SHOWCASE) controlled by button press
 - **GPIO control** – Read and write any GPIO pin from the web UI; trigger interrupts between boards
-- **Analog injection** – Set ADC input voltage (0–3.3 V) with a slider to dynamically alter LED animation speed
-- **Live UART logging** – Real-time log streaming from USART3 (debug console) and USART2 (inter-board hub) for both boards
+- **Live UART logging** – Real-time log streaming from USART2 (debug console) and USART1 (inter-board) for both boards
 
 ### Electrosmith Daisy Seed
 - **Real libDaisy apps** – Unmodified example ELFs from the official libDaisy/DaisyExamples repository boot and run in Renode
@@ -97,7 +90,7 @@ Open **http://localhost:5173** in your browser.
 
 ### 2. Choose a board scenario
 
-Use the **Discovery** / **Daisy Seed** toggle in the top bar to switch between scenarios. The board view and available firmware list update accordingly.
+Use the **Nucleo** / **Daisy Seed** toggle in the top bar to switch between scenarios. The board view and available firmware list update accordingly.
 
 ### 3. Select firmware
 
@@ -110,7 +103,7 @@ If multiple ELF files are available a dropdown appears. For Daisy Seed, the avai
 | **Knob** | Reads ADC wiper on pin 28 (PC4) and drives soft-PWM on pin 35 (PA2) | Potentiometer + LED |
 | **OLED** | Renders a demo on an SSD1306 OLED via SPI | OLED display |
 
-For Discovery, pick any built ELF from the `zephyr/build/` output.
+For Nucleo, pick any built ELF from the `zephyr/build/` output.
 
 ### 4. Activate
 
@@ -122,7 +115,7 @@ Click **Activate** to load the selected firmware into Renode and start the simul
 - **Daisy / Button** — Click and hold the tact switch on the breadboard; release to trigger the button-release event
 - **Daisy / Knob** — Drag the potentiometer knob up/down to set the ADC voltage (0–3.3 V); the LED dims and brightens in response to the soft-PWM output
 - **Daisy / OLED** — The SSD1306 display renders live output from the firmware in the breadboard panel
-- **Discovery** — Use the GPIO inject buttons on each board card to set pin levels; use the analog slider to set ADC voltage
+- **Nucleo** — Use the GPIO inject buttons on each board card to set pin levels
 
 ### 6. Switch firmware
 
@@ -136,21 +129,21 @@ Click **Clear** to stop the simulation and reset all state (logs, pin levels, OL
 
 ## Architecture
 
-### STM32F4 Discovery (dual-board)
+### STM32F411RE Nucleo (dual-board)
 
 ```
 ┌───────────────────────────────────────────────────────────────┐
 │                        Renode Headless                        │
 │                                                               │
-│  ┌────────────────────┐    UART Hub   ┌────────────────────┐  │
-│  │    STM32F4 Disco   │◄─────────────►│  STM32F4 Disco     │  │
-│  │       board_0      │  (USART2)     │    board_1         │  │
-│  │  PD12-15: LEDs     │               │  PD12-15: LEDs     │  │
-│  │  PA0:     Button   │               │  PA0:     Button   │  │
-│  │  PB5:     GPIO IRQ │               │  PB5:     GPIO IRQ │  │
-│  │  PA1/PA6: ADC      │               │  PA1/PA6: ADC      │  │
+│  ┌────────────────────┐               ┌────────────────────┐  │
+│  │  STM32F411RE Nucleo│               │ STM32F411RE Nucleo │  │
+│  │       board_0      │               │    board_1         │  │
+│  │  PA5:  LD2 LED     │               │  PA5:  LD2 LED     │  │
+│  │  PC13: B1 Button   │               │  PC13: B1 Button   │  │
+│  │  PB12-14: LEDs     │               │  PB12-14: LEDs     │  │
 │  └────────────────────┘               └────────────────────┘  │
-│    │ USART3 (debug)                    │ USART3 (debug)       │
+│    │ USART2 (debug)                    │ USART2 (debug)       │
+│    │ USART1 (inter-board)              │ USART1 (inter-board) │
 │                         Robot server                          │
 │                        (XML-RPC :55555)                       │
 └───────────────────────────────────────────────────────────────┘
@@ -216,7 +209,7 @@ Click **Clear** to stop the simulation and reset all state (logs, pin levels, OL
 ## Quick Start
 
 ```bash
-# 1. Clone and initialise the Zephyr workspace (for the Discovery firmware)
+# 1. Clone and initialise the Zephyr workspace (for the Nucleo firmware)
 git clone https://github.com/magnusarinell/renode-visual-console.git
 cd renode-visual-console/zephyr
 # If ZEPHYR_BASE is set in your environment, unset it first:
@@ -233,7 +226,7 @@ npm run setup:daisy
 npm run deps
 
 # 4. Build all firmware
-#    Builds: STM32F4 Discovery (Zephyr) + Daisy Seed Blink, OLED, Button, Knob
+#    Builds: STM32F411RE Nucleo (Zephyr) + Daisy Seed Blink, OLED, Button, Knob
 npm run build
 
 # 5. Start everything (Renode + backend + frontend)
@@ -251,7 +244,7 @@ Open **http://localhost:5173** in your browser.
 
 | Command | Description |
 |---------|-------------|
-| `npm run build` | Build all firmware: STM32F4 Discovery + Daisy Seed Blink, OLED, Button, Knob |
+| `npm run build` | Build all firmware: STM32F411RE Nucleo + Daisy Seed Blink, OLED, Button, Knob |
 | `npm run build:daisy:blink` | Build only Daisy Seed Blink |
 | `npm run build:daisy:button` | Build only Daisy Seed Button |
 | `npm run build:daisy:knob` | Build only Daisy Seed Knob |
@@ -265,9 +258,9 @@ Open **http://localhost:5173** in your browser.
 
 ## Firmware Overview
 
-### STM32F4 Discovery — Zephyr RTOS
+### STM32F411RE Nucleo — Zephyr RTOS
 
-The firmware targets the **STM32F4 Discovery Kit** (`stm32f4_disco` in Zephyr) and runs in Renode using the `stm32f4_discovery-kit` platform description.
+The firmware targets the **STM32F411RE Nucleo** (`nucleo_f411re` in Zephyr) and runs in Renode using the `nucleo_f411re.repl` platform description.
 
 #### LED Animation Modes
 
@@ -283,7 +276,7 @@ Three mode-indicator LEDs (PB12–PB14) show the active mode.
 
 #### Inter-board Communication
 
-Both boards share a **UART Hub** on USART2. When board_0's GPIO interrupt input (PB5) fires, it sends a `TOGGLE_1` command to board_1 via the hub, toggling board_1's LED (PD12).
+Both boards have independent UART1 terminals for inter-board communication. USART2 is the debug console exposed via Renode's analyzer.
 
 ---
 
@@ -327,7 +320,7 @@ Environment variables for `backend/index.mjs`:
 | `RENODE_ROBOT_PORT` | `55555` | Renode robot server port |
 | `RENODE_ROBOT_HOST` | `localhost` | Renode robot server host |
 | `RENODE_MACHINES` | `board_0,board_1` | Comma-separated machine names |
-| `RENODE_SCRIPT` | `renode/discovery/discovery_dual.resc` | Renode script path |
+| `RENODE_SCRIPT` | `renode/nucleo/nucleo_dual.resc` | Renode script path |
 | `AUTO_START_RENODE` | `true` | Start simulation on backend launch |
 
 ---
@@ -336,11 +329,8 @@ Environment variables for `backend/index.mjs`:
 
 ```
 ├── zephyr/
-│   ├── app/                    # Zephyr application (C firmware, STM32F4 disco)
-│   │   └── src/                # main.c, adc.c, gpio_irq.c, uart_comm.c, outputs.c
-│   └── renode/
-│       └── discovery/
-│           └── discovery_dual.resc  # Dual-board Renode script
+│   ├── app/                    # Zephyr application (C firmware, STM32F411RE Nucleo)
+│   │   └── src/                # main.c, gpio_irq.c, uart_comm.c, outputs.c
 ├── renode/
 │   └── daisy/
 │       ├── daisy_seed.resc     # Daisy Seed Renode script (loads ELF, stubs, starts CPU)
@@ -363,7 +353,7 @@ Environment variables for `backend/index.mjs`:
 │   └── src/
 │       ├── App.jsx             # Top-level: board toggle, ELF selector, scenario routing
 │       └── components/
-│           ├── BoardCard.jsx   # STM32F4 Discovery board UI
+│           ├── BoardCard.jsx   # STM32F411RE Nucleo board UI
 │           └── daisy/
 │               ├── DaisySeedBoard.jsx   # Daisy board layout + pin header
 │               ├── BreadboardPanel.jsx  # Adaptive breadboard (blink/button/knob/oled)

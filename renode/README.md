@@ -4,15 +4,15 @@ This directory contains Renode platform descriptions (`.repl`) and simulation sc
 
 ---
 
-## discovery/ — STM32F4 Discovery Kit (dual-board)
+## nucleo/ — STM32F411RE Nucleo (dual-board)
 
-### `discovery_dual.resc`
+### `nucleo_dual.resc`
 
-Dual-board simulation with two `stm32f4_disco` instances connected via a UART Hub.
+Dual-board simulation with two `nucleo_f411re` instances, each with independent UART terminals.
 
 - Both boards load the same Zephyr ELF (`zephyr/build/zephyr/zephyr.elf`).
-- `usart3` is exposed via the Renode analyzer for debug output.
-- `usart2` on each board is connected to the shared UART Hub for inter-board communication.
+- `usart2` is exposed via the Renode analyzer for debug output (console/printk).
+- `usart1` on each board gets its own server socket terminal for inter-board communication.
 - GDB servers on ports 3334 (board_0) and 3335 (board_1).
 
 ---

@@ -13,5 +13,5 @@
 * Kör debugging med GDB. Show in web GUI rows executing or somehting. Document debugging
 * Delte zehpyr for daisy? Or make it show in firmware selector
 * Microchip polarfire and Yocto
-* MicroPython-variant for discovery
+* MicroPython-variant for nucleo
 * Monitor tab not showing anything really. Remove and set debug there? Debug show as oneline, with expander? Under each board?

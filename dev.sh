@@ -7,8 +7,8 @@ cmd="${1:-help}"
 shift || true
 
 case "$cmd" in
-  build-disco)
-    bash "$ROOT_DIR/scripts/build_disco.sh" "$@"
+  build-nucleo)
+    bash "$ROOT_DIR/scripts/build_nucleo.sh" "$@"
     ;;
   build-daisy)
     bash "$ROOT_DIR/scripts/build_daisy.sh" "$@"
@@ -42,13 +42,13 @@ case "$cmd" in
 Usage: bash dev.sh <command>
 
 Commands:
-  build-disco   Build firmware for STM32F4 Discovery (stm32f4_disco, used by Renode)
+  build-nucleo  Build firmware for STM32F411RE-Nucleo (nucleo_f411re, used by Renode)
   build-daisy   Build a libDaisy example (default: seed/Blink)
   setup-daisy   Clone DaisyExamples + create toolchain wrappers
-  build         Build firmware for nucleo_f446re (alternative target)
+  build         Build all firmware (nucleo + daisy + espidf)
   renode        Build firmware and start Renode simulation (dual-board)
   clean         Remove Zephyr build directory
-  rebuild       Clean then build-disco
+  rebuild       Clean then build nucleo
   start-backend Start Node.js WebSocket bridge to Renode
   start-frontend Start Vite dev server (frontend)
   start         Start all services via npm start

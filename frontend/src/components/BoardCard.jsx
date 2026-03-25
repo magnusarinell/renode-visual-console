@@ -3,13 +3,14 @@ import { NucleoBreakoutPanel } from "./NucleoBreakoutPanel";
 
 function UartCard({ logs, onClearLogs }) {
   return (
-    <aside className="uart-card">
-      <header>
-        <div className="uart-card-title">COM · USART2</div>
+    <div className="uart-card">
+      <div className="uart-card-header">
+        <span className="uart-card-title">COM</span>
+        <span className="uart-card-subtitle">USART2</span>
         <div className="uart-filter-bar">
           <button className="uart-filter-btn clear" onClick={onClearLogs}>Clear</button>
         </div>
-      </header>
+      </div>
       <div className="log-lines">
         {logs.length === 0 && <div className="empty-hint">No data yet.</div>}
         {[...logs].reverse().map((entry) => {
@@ -22,7 +23,7 @@ function UartCard({ logs, onClearLogs }) {
           );
         })}
       </div>
-    </aside>
+    </div>
   );
 }
 
