@@ -36,7 +36,6 @@ int main(void)
         printk("UART init failed - inter-board communication unavailable\n");
     }
 
-    app_gpio_irq_init();
     app_adc_init();
 
     printk("Application ready, entering main loop\n");
@@ -46,7 +45,7 @@ int main(void)
         bool rising_edge    = button_pressed && !button_pressed_prev;
         button_pressed_prev = button_pressed;
 
-        /* B1 press: send TOGGLE_1 to the other board via inter-board UART */
+        /* B1 press: send TOGGLE_1 to the other board via inter-board UART. */
         if (rising_edge) {
             if (app_uart_send("TOGGLE_1\n", 9) >= 0) {
                 printk("[B1] Sending TOGGLE_1\n");
@@ -56,7 +55,7 @@ int main(void)
         tick++;
 
         /* Rotating chase: one bit cycling through led1/led2/led3 (outputs[1..3]) */
-        uint32_t ticks_per_step = (blink_interval_ms / 240) + 1;
+        uint32_t ticks_per_step = (blink_interval_ms / 20) + 1;
         if (tick % ticks_per_step == 0) {
             write_pattern(1u << (step % 3));
             step++;
@@ -84,7 +83,7 @@ int main(void)
             }
         }
 
-        k_msleep(120);
+        k_msleep(10);
     }
 
     return 0;

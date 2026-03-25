@@ -47,9 +47,7 @@ export const INITIAL_MACHINES = _hasScript
 export const INITIAL_UART_PERIPHERAL = _hasScript
   ? (_isDaisyScript ? "sysbus.usart1" : (_isEsp32c3Script ? "sysbus.uart0" : (RENODE_UART || "sysbus.usart3")))
   : "";
-export const INITIAL_HUB_PERIPHERAL = _hasScript
-  ? ((_isDaisyScript || _isEsp32c3Script) ? null : "sysbus.usart2")
-  : null;
+export const INITIAL_HUB_PERIPHERAL = null;
 export const INITIAL_SCENARIO = _hasScript
   ? (_isDaisyScript ? "daisy" : (_isEsp32c3Script ? "esp32c3" : "discovery"))
   : "none";

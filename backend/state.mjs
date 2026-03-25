@@ -43,6 +43,7 @@ export const state = {
   // TCP UART streams (Fas 1: ServerSocketTerminal in discovery_dual.resc)
   tcpUartSockets: new Map(),
   tcpUartStoppers: new Map(),
+  _interBoardRelayStopper: null,
 
   // Cached addresses (resolved lazily at runtime)
   _blinkIntervalMsAddr: undefined,

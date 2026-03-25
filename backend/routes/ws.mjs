@@ -48,9 +48,13 @@ export default async function wsRoutes(fastify) {
         if (msg.type === "action") {
           const machine = resolveMachine(msg.machine);
           if (msg.action === "toggle_button") {
-            // Simulate B1 press (PC13 active LOW): pull LOW then release after 200 ms
-            sendMonitorCommand("sysbus.gpioPortC OnGPIO 13 false", machine);
-            setTimeout(() => sendMonitorCommand("sysbus.gpioPortC OnGPIO 13 true", machine), 200);
+            // Simulate B1 press (PC13 active LOW): pull LOW, wait 80 ms wall-clock so
+            // simulation time can advance enough for the firmware loop to observe the
+            // LOW state, then release.
+            executeRenodeCommandSilent("sysbus.gpioPortC OnGPIO 13 false", machine)
+              .then(() => new Promise((r) => setTimeout(r, 80)))
+              .then(() => executeRenodeCommandSilent("sysbus.gpioPortC OnGPIO 13 true", machine))
+              .catch(() => {});
             return;
           }
           if (msg.action === "press_button") {

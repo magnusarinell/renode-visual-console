@@ -5,7 +5,7 @@ import { repoRoot, RENODE_ROBOT_HOST, RENODE_ROBOT_PORT, DEFAULT_MACHINE, DAISY_
 import { emit, emitLog } from "./broadcast.mjs";
 import { callXmlRpc, executeRenodeCommandSilent, executeRenodeScript } from "./rpc.mjs";
 import { startUartStreaming, drainUartLines, startUartDrainLoop, stopUartDrainLoops, startHubStreaming, startHubDrainLoop, stopHubDrainLoops } from "./uart.mjs";
-import { startTcpUartStream, stopAllTcpUartStreams } from "./tcp-uart.mjs";
+import { startTcpUartStream, stopAllTcpUartStreams, startInterBoardRelay, stopInterBoardRelay } from "./tcp-uart.mjs";
 import { startGpioPushLoop, stopGpioPushLoops } from "./gpio.mjs";
 import { startOledPollLoop, stopOledPollLoop, startPcPollLoop, stopPcPollLoop, OLED_FRAME_PATH } from "./polls.mjs";
 import { sleep } from "./utils.mjs";
@@ -39,6 +39,7 @@ export async function connectToRobotServer() {
   state.uartTesterIdByMachine.clear();
   stopUartDrainLoops();
   stopAllTcpUartStreams();
+  stopInterBoardRelay();
   state.hubTesterReadyByMachine.clear();
   state.hubTesterIdByMachine.clear();
   stopHubDrainLoops();
@@ -82,11 +83,18 @@ export async function connectToRobotServer() {
         await drainUartLines(machine, initDrainLines, initDrainTimeout);
         startUartDrainLoop(machine);
       }
-      if (state.activeHubPeripheral) {
+      if (state.activeHubPeripheral && state.activeScenario !== "discovery") {
         await startHubStreaming(machine);
         startHubDrainLoop(machine);
       }
       startGpioPushLoop(machine);
+    }
+    // Discovery: start point-to-point relay for usart1 (no hub echo)
+    if (state.activeScenario === "discovery" && state.activeMachines.length >= 2) {
+      startInterBoardRelay(
+        state.activeMachines[0], UART_SOCKET_PORT_BASE + 2,
+        state.activeMachines[1], UART_SOCKET_PORT_BASE + 3,
+      );
     }
     if (state.activeScenario === "daisy") startOledPollLoop();
     if (state.activeScenario === "daisy" || state.activeScenario === "esp32c3" || state.activeScenario === "discovery") {
@@ -128,6 +136,7 @@ export async function handleLoadScript(scenario) {
   stopUartDrainLoops();
   stopHubDrainLoops();
   stopAllTcpUartStreams();
+  stopInterBoardRelay();
   stopGpioPushLoops();
   stopOledPollLoop();
   stopPcPollLoop();
@@ -152,7 +161,7 @@ export async function handleLoadScript(scenario) {
   } else {
     state.activeMachines       = ["board_0", "board_1"];
     state.activeUartPeripheral = "sysbus.usart2";
-    state.activeHubPeripheral  = "sysbus.usart1";
+    state.activeHubPeripheral  = null;  // hub replaced by inter-board relay
   }
   state.activeScenario = scenario;
   state.rpcQueue = Promise.resolve();
@@ -209,12 +218,32 @@ export async function handleLoadScript(scenario) {
       await drainUartLines(machine, drainLines, drainTimeout);
       startUartDrainLoop(machine);
     }
-    if (state.activeHubPeripheral) {
+    if (state.activeHubPeripheral && state.activeScenario !== "discovery") {
       await startHubStreaming(machine);
       startHubDrainLoop(machine);
     }
     startGpioPushLoop(machine);
   }
+
+  // Discovery: start point-to-point relay for usart1 (no hub echo)
+  if (state.activeScenario === "discovery" && state.activeMachines.length >= 2) {
+    startInterBoardRelay(
+      state.activeMachines[0], UART_SOCKET_PORT_BASE + 2,
+      state.activeMachines[1], UART_SOCKET_PORT_BASE + 3,
+    );
+  }
+
+  // PC13 (B1 USER button, GPIO_ACTIVE_LOW) defaults to 0 (LOW) in Renode,
+  // which the firmware reads as "button pressed". Release it on all discovery
+  // machines so the firmware starts with the correct idle state and doesn't
+  // fire a spurious TOGGLE_1 on the very first loop iteration.
+  if (state.activeScenario === "discovery") {
+    for (const m of state.activeMachines) {
+      await executeRenodeCommandSilent("sysbus.gpioPortC OnGPIO 13 true", m).catch(() => {});
+    }
+    emitLog("system", "PC13 (B1) released on all machines — button state initialised");
+  }
+
   if (state.activeScenario === "daisy") startOledPollLoop();
   if (state.activeScenario === "daisy" || state.activeScenario === "esp32c3" || state.activeScenario === "discovery") {
     startPcPollLoop();
@@ -226,6 +255,7 @@ export async function handleClear() {
   stopUartDrainLoops();
   stopHubDrainLoops();
   stopAllTcpUartStreams();
+  stopInterBoardRelay();
   stopGpioPushLoops();
   stopOledPollLoop();
   stopPcPollLoop();

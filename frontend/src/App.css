@@ -437,6 +437,7 @@ h1 {
   flex-direction: column;
   flex: 1;
   min-width: 0;
+  gap: 15px;
 }
 
 .board-main-column .board-shell {
@@ -1045,7 +1046,7 @@ h1 {
 .uart-card {
   border: 1px solid #2b3d44;
   border-radius: 8px;
-  margin-top: 0.6rem;
+  /* margin-top: 0.6rem; */
   background: #0b1012;
   padding: 0.9rem;
   display: flex;
@@ -1104,6 +1105,12 @@ h1 {
   border-color: #3a6a9e;
   background: rgba(58, 106, 158, 0.18);
   color: #82c8ff;
+}
+
+.uart-filter-btn.hub.active {
+  border-color: #8a6020;
+  background: rgba(160, 110, 30, 0.18);
+  color: #f0c060;
 }
 
 .uart-filter-btn.clear {
@@ -1289,6 +1296,14 @@ button:hover {
   border-radius: 3px;
   padding-left: 0.25rem;
   color: #82c8ff;
+}
+
+/* HUB (USART1 inter-board) log entries: amber */
+.log-line.uart.src-usart1 {
+  background: rgba(160, 110, 30, 0.1);
+  border-radius: 3px;
+  padding-left: 0.25rem;
+  color: #f0c060;
 }
 
 .log-line.system {

@@ -42,9 +42,6 @@ export default function App() {
     Object.fromEntries(BOARDS.map((b) => [b.id, buildPinMap()]))
   );
   const [activeLogTab, setActiveLogTab]       = useState("system"); // "system" | "monitor"
-  const [uartFilterByBoard, setUartFilterByBoard] = useState(() =>
-    Object.fromEntries(BOARDS.map((b) => [b.id, { usart2: true, usart1: true }]))
-  );
   const [voltageByBoard, setVoltageByBoard]   = useState(() =>
     Object.fromEntries(BOARDS.map((b) => [b.id, {}]))
   );
@@ -92,13 +89,15 @@ export default function App() {
       setDaisyPinStates({});
       pa2SamplesRef.current = [];
       setPa2LedDuty(0);
-      if (bbModeRef.current === "button") {
-        // PA2 is an input in Button firmware — initialise pull-up so firmware
-        // reads HIGH (not pressed) before any physical interaction.
-        send({ type: "gpio", op: "write", machine: DAISY_MACHINE, pin: DAISY_BUTTON_PIN, level: true });
-      } else {
-        // Initialize ADC channel to 0 V so firmware reads silence at startup.
-        send({ type: "analog", machine: DAISY_MACHINE, pin: DAISY_KNOB_PIN, voltage: 0 });
+      if (scenario === "daisy") {
+        if (bbModeRef.current === "button") {
+          // PA2 is an input in Button firmware — initialise pull-up so firmware
+          // reads HIGH (not pressed) before any physical interaction.
+          send({ type: "gpio", op: "write", machine: DAISY_MACHINE, pin: DAISY_BUTTON_PIN, level: true });
+        } else {
+          // Initialize ADC channel to 0 V so firmware reads silence at startup.
+          send({ type: "analog", machine: DAISY_MACHINE, pin: DAISY_KNOB_PIN, voltage: 0 });
+        }
       }
     },
     onPinState: (machine, pin, level) => {
@@ -166,7 +165,6 @@ export default function App() {
     () => logs.filter((e) => e.stream === "uart" && e.machine === ESP32C3_MACHINE),
     [logs]
   );
-  const uartHubLogs = useMemo(() => logs.filter((e) => e.stream === "hub"), [logs]);
   const systemLogs  = useMemo(() => logs.filter((e) => e.stream === "system"), [logs]);
   const monitorLogs = useMemo(
     () => logs.filter((e) => e.stream !== "uart" && e.stream !== "system" && e.stream !== "hub"),
@@ -178,26 +176,6 @@ export default function App() {
       BOARDS.map((b) => [b.id, uartLogs.filter((e) => (e.machine || BOARDS[0].id) === b.id)])
     ),
     [uartLogs]
-  );
-  const uartHubLogsByBoard = useMemo(
-    () => Object.fromEntries(
-      BOARDS.map((b) => [b.id, uartHubLogs.filter((e) => (e.machine || BOARDS[0].id) === b.id)])
-    ),
-    [uartHubLogs]
-  );
-  const combinedUartByBoard = useMemo(
-    () => Object.fromEntries(
-      BOARDS.map((b) => {
-        const u3 = uartLogsByBoard[b.id]    || [];
-        const u2 = uartHubLogsByBoard[b.id] || [];
-        return [
-          b.id,
-          [...u3.map((e) => ({ ...e, src: "usart2" })), ...u2.map((e) => ({ ...e, src: "usart1" }))]
-            .sort((a, x) => a.seq - x.seq),
-        ];
-      })
-    ),
-    [uartLogsByBoard, uartHubLogsByBoard]
   );
 
   // ── Helpers ────────────────────────────────────────────────────────────────
@@ -266,7 +244,6 @@ export default function App() {
 
   function pulseBoardButton(boardId) {
     send({ type: "action", action: "toggle_button", machine: boardId });
-    setTimeout(() => send({ type: "action", action: "toggle_button", machine: boardId }), 260);
   }
 
   // ── Status label ───────────────────────────────────────────────────────────
@@ -413,23 +390,16 @@ export default function App() {
                       board={board}
                       pinStates={pinStatesByBoard[board.id] || buildPinMap()}
                       firmwareOutputs={firmwareOutputsFor(board.id, pinStatesByBoard)}
-                      uartFilter={uartFilterByBoard[board.id] || { usart2: true, usart1: true }}
-                      onToggleFilter={(src) =>
-                        setUartFilterByBoard((prev) => ({
-                          ...prev,
-                          [board.id]: { ...prev[board.id], [src]: !prev[board.id][src] },
-                        }))
-                      }
                       onClearLogs={() =>
                         setLogs((prev) =>
                           prev.filter(
                             (e) =>
-                              !((e.stream === "uart" || e.stream === "hub") &&
+                              !(e.stream === "uart" &&
                                 (e.machine || BOARDS[0].id) === board.id)
                           )
                         )
                       }
-                      combinedUartLogs={combinedUartByBoard[board.id] || []}
+                      uartLogs={uartLogsByBoard[board.id] || []}
                       voltage={voltageByBoard[board.id] || {}}
                       onVoltageChange={(pin, v) =>
                         setVoltageByBoard((prev) => ({
