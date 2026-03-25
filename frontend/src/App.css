@@ -282,6 +282,26 @@ h1 {
   align-items: start;
 }
 
+.board-column-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  max-width: 460px;
+}
+
+.board-debug-line {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 0.45em;
+  font-family: "Courier New", Courier, monospace;
+  font-size: 0.70rem;
+  white-space: nowrap;
+  overflow: hidden;
+  padding: 0 2px;
+  min-height: 1.1em;
+}
+
 .logs-tab-content {
   display: flex;
   flex-direction: column;
@@ -1441,3 +1461,239 @@ button:hover {
     grid-template-columns: 1fr;
   }
 }
+
+/* ── NucleoBoard SVG visual component ──────────────────────────── */
+
+.board-shell-label {
+  font-size: 0.6rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: #9eb5bf;
+  text-align: center;
+  padding: 0.3rem 0 0.15rem;
+}
+
+/* Outer section — no green card background */
+.nucleo-board-section {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+/* Horizontal row: left pin header | SVG board | right pin header */
+.nucleo-strip {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0;
+}
+
+/* SVG board takes available center space */
+.nucleo-svg-rotated {
+  flex: 1 1 0;
+  min-width: 0;
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* ── NucleoBreakoutPanel (breadboard) ───────────────────────────── */
+
+.nbb-panel {
+  background: #141618;
+  border-top: 2px dashed #2a3840;
+  padding: 0.5rem 0.6rem 0.7rem;
+}
+
+.nbb-title {
+  font-size: 0.55rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #5a7888;
+  margin-bottom: 0.35rem;
+  text-align: center;
+}
+
+.nbb-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+/* Decoration hole rows */
+.nbb-hole-row {
+  display: flex;
+  flex-direction: row;
+  gap: 6px;
+  justify-content: center;
+  padding: 1px 0;
+}
+
+.nbb-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: #1e272c;
+  border: 1px solid #252e33;
+}
+
+/* Component rows */
+.nbb-component-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.nbb-controls-row {
+  flex-direction: row;
+  justify-content: center;
+  gap: 2rem;
+}
+
+/* Breadboard rail */
+.nbb-rail {
+  display: flex;
+  flex-direction: row;
+  gap: 5px;
+  background: #1a2228;
+  border-radius: 3px;
+  padding: 4px 6px;
+}
+
+.nbb-rail-sig {
+  border: 1px solid #2a3a42;
+}
+
+/* LED hole (PB12/13/14) */
+.nbb-led-hole {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  background: #1e2a30;
+  border: 1px solid #304048;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, box-shadow 0.15s;
+}
+
+.nbb-led-hole.high {
+  background: #ffd04d;
+  box-shadow: 0 0 6px 2px rgba(255, 200, 50, 0.7);
+  border-color: #ffd04d;
+}
+
+.nbb-led-hole.low {
+  background: #2a1e00;
+  border-color: #3a2c00;
+}
+
+.nbb-led-inner {
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.6;
+}
+
+/* Component labels */
+.nbb-component-labels {
+  display: flex;
+  flex-direction: row;
+  gap: 5px;
+}
+
+.nbb-hole-label {
+  width: 12px;
+  font-size: 0.42rem;
+  color: #5a7888;
+  text-align: center;
+  letter-spacing: 0;
+}
+
+.nbb-section-label {
+  font-size: 0.46rem;
+  color: #4a6070;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-align: center;
+}
+
+/* Control slots */
+.nbb-control-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+/* Rotary knob */
+.nbb-knob-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  cursor: ns-resize;
+  user-select: none;
+}
+
+.nbb-knob {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: radial-gradient(circle at 40% 35%, #4a5058, #1e2228);
+  border: 2px solid #3a4a54;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.5), inset 0 1px 2px rgba(255,255,255,0.08);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 3px;
+  position: relative;
+}
+
+.nbb-knob-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: #89f0b9;
+}
+
+.nbb-knob-arc {
+  width: 28px;
+  height: 5px;
+  background: #1e2228;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.nbb-knob-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #3ca487, #89f0b9);
+  border-radius: 2px;
+  transition: width 0.05s;
+}
+
+.nbb-knob-val {
+  font-size: 0.5rem;
+  color: #7abfa0;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Push button */
+.nbb-push-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 2px solid #1a4a7a;
+  background: radial-gradient(circle at 38% 35%, #2779d8, #1352a0);
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(21, 101, 192, 0.45);
+  transition: filter 0.1s, transform 0.08s;
+}
+
+.nbb-push-btn:active {
+  transform: scale(0.88);
+  filter: brightness(1.3);
+}
+

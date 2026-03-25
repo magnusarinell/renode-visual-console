@@ -3,9 +3,9 @@ import "./App.css";
 import "./components/daisy/Daisy.css";
 import {
   BOARDS, ALL_TRACKED_PINS, MAX_LOG_LINES,
-  buildPinMap, firmwareOutputsFor, isGpioPin,
+  buildPinMap, firmwareOutputsFor,
 } from "./constants";
-import { DAISY_MACHINE, DAISY_INPUT_PIN, DAISY_OUTPUT_PIN, DAISY_LED_PIN, DAISY_BUTTON_PIN, DAISY_KNOB_PIN } from "./daisy-constants";
+import { DAISY_MACHINE, DAISY_OUTPUT_PIN, DAISY_LED_PIN, DAISY_BUTTON_PIN, DAISY_KNOB_PIN } from "./daisy-constants";
 import { ESP32C3_MACHINE, ESP32C3_LED_PIN, esp32c3ModeFromElf } from "./esp32c3-constants";
 import { useWebSocket } from "./hooks/useWebSocket";
 import { BoardCard } from "./components/BoardCard";
@@ -18,13 +18,11 @@ import { LogPanel } from "./components/LogPanel";
 let _logSeq = 0;
 
 export default function App() {
-  const [view, setView]                       = useState("discovery");
+  const [view, setView]                       = useState("nucleo");
   const [activeScript, setActiveScript]       = useState("none"); // which resc is loaded
-  const [selectedDaisyPin, setSelectedDaisyPin] = useState(DAISY_INPUT_PIN);
   const [simRunning, setSimRunning]           = useState(false);
   const [logs, setLogs]                       = useState([]);
   const [outputLevel, setOutputLevel]         = useState(null);  // daisy PA15
-  const [inputLevel, setInputLevel]           = useState(null);  // daisy PB3
   const [ledLevel, setLedLevel]               = useState(null);  // daisy PC7
   const [oledFrame, setOledFrame]             = useState(null);
   const [daisyPinStates, setDaisyPinStates]   = useState({});
@@ -43,15 +41,9 @@ export default function App() {
   const [pinStatesByBoard, setPinStatesByBoard] = useState(() =>
     Object.fromEntries(BOARDS.map((b) => [b.id, buildPinMap()]))
   );
-  const [selectedPinByBoard, setSelectedPinByBoard] = useState(() =>
-    Object.fromEntries(BOARDS.map((b) => [b.id, "PA0"]))
-  );
   const [activeLogTab, setActiveLogTab]       = useState("system"); // "system" | "monitor"
   const [uartFilterByBoard, setUartFilterByBoard] = useState(() =>
-    Object.fromEntries(BOARDS.map((b) => [b.id, { usart2: true, usart3: true }]))
-  );
-  const [analogActiveByBoard, setAnalogActiveByBoard] = useState(() =>
-    Object.fromEntries(BOARDS.map((b) => [b.id, false]))
+    Object.fromEntries(BOARDS.map((b) => [b.id, { usart2: true, usart1: true }]))
   );
   const [voltageByBoard, setVoltageByBoard]   = useState(() =>
     Object.fromEntries(BOARDS.map((b) => [b.id, {}]))
@@ -92,7 +84,6 @@ export default function App() {
     onScriptLoaded: (scenario) => {
       setActiveScript(scenario);
       setOutputLevel(null);
-      setInputLevel(null);
       setLedLevel(null);
       setPcLog([]);
       setOledFrame(null);
@@ -113,7 +104,6 @@ export default function App() {
     onPinState: (machine, pin, level) => {
       if (machine === DAISY_MACHINE) {
         if (pin === DAISY_OUTPUT_PIN) setOutputLevel(level);
-        if (pin === DAISY_INPUT_PIN)  setInputLevel(level);
         if (pin === DAISY_LED_PIN)    setLedLevel(level);
         setDaisyPinStates((prev) => ({ ...prev, [pin]: level }));
         // PA2 = software-PWM LED output in knob mode. Always-emitted by backend
@@ -177,10 +167,6 @@ export default function App() {
     [logs]
   );
   const uartHubLogs = useMemo(() => logs.filter((e) => e.stream === "hub"), [logs]);
-  const allUartLogs = useMemo(
-    () => logs.filter((e) => e.stream === "uart" || e.stream === "hub"),
-    [logs]
-  );
   const systemLogs  = useMemo(() => logs.filter((e) => e.stream === "system"), [logs]);
   const monitorLogs = useMemo(
     () => logs.filter((e) => e.stream !== "uart" && e.stream !== "system" && e.stream !== "hub"),
@@ -206,7 +192,7 @@ export default function App() {
         const u2 = uartHubLogsByBoard[b.id] || [];
         return [
           b.id,
-          [...u3.map((e) => ({ ...e, src: "usart3" })), ...u2.map((e) => ({ ...e, src: "usart2" }))]
+          [...u3.map((e) => ({ ...e, src: "usart2" })), ...u2.map((e) => ({ ...e, src: "usart1" }))]
             .sort((a, x) => a.seq - x.seq),
         ];
       })
@@ -253,9 +239,9 @@ export default function App() {
       selectedDiscoveryElf;
     if (view === "daisy") setActivatedElf(elf);
     if (elf) {
-      send({ type: "select_binary", elf, scenario: view });
+      send({ type: "select_binary", elf, scenario: view === "nucleo" ? "discovery" : view });
     } else {
-      send({ type: "load_script", scenario: view });
+      send({ type: "load_script", scenario: view === "nucleo" ? "discovery" : view });
     }
   }
 
@@ -270,7 +256,6 @@ export default function App() {
     setActiveScript("none");
     setSimRunning(false);
     setOutputLevel(null);
-    setInputLevel(null);
     setLedLevel(null);
     setEsp32c3LedLevel(null);
     setDaisyPinStates({});
@@ -279,41 +264,9 @@ export default function App() {
     setPinStatesByBoard(Object.fromEntries(BOARDS.map((b) => [b.id, buildPinMap()])));
   }
 
-  function onDaisyInjectLevel(stmPin, level) {
-    if (stmPin === DAISY_OUTPUT_PIN) return; // PA15 is firmware output
-    send({ type: "gpio", op: "write", machine: DAISY_MACHINE, pin: stmPin, level });
-  }
-
-  function onDaisyPulsePin(stmPin) {
-    if (stmPin === DAISY_OUTPUT_PIN) return;
-    send({ type: "gpio", op: "pulse", machine: DAISY_MACHINE, pin: stmPin });
-  }
-
   function pulseBoardButton(boardId) {
     send({ type: "action", action: "toggle_button", machine: boardId });
     setTimeout(() => send({ type: "action", action: "toggle_button", machine: boardId }), 260);
-  }
-
-  function pulsePin(boardId, pin) {
-    if (!isGpioPin(pin)) return;
-    injectPinLevel(boardId, pin, true);
-    setTimeout(() => injectPinLevel(boardId, pin, false), 130);
-  }
-
-  function injectPinLevel(boardId, pin, level) {
-    const pinStates = pinStatesByBoard[boardId] || buildPinMap();
-    if (pinStates[pin]?.role === "output") {
-      addLog("system", `Pin ${pin} is controlled by firmware (output).`);
-      return;
-    }
-    setPinStatesByBoard((prev) => ({
-      ...prev,
-      [boardId]: {
-        ...(prev[boardId] || buildPinMap()),
-        [pin]: { ...(prev[boardId]?.[pin] || {}), level },
-      },
-    }));
-    send({ type: "gpio", op: "write", machine: boardId, pin, level });
   }
 
   // ── Status label ───────────────────────────────────────────────────────────
@@ -332,6 +285,14 @@ export default function App() {
     return simRunning ? "Renode: Running" : "Renode: Stopped";
   }, [socketState, simRunning]);
 
+  // Per-board last PC log entry
+  const lastPcByBoard = useMemo(
+    () => Object.fromEntries(
+      BOARDS.map((b) => [b.id, pcLog.filter((e) => e.machine === b.id).at(-1) ?? null])
+    ),
+    [pcLog]
+  );
+
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
@@ -344,9 +305,9 @@ export default function App() {
             <div className="control-bar">
             <div className="view-toggle">
               <button
-                className={`view-btn${view === "discovery" ? " active" : ""}`}
-                onClick={() => setView("discovery")}
-              >Discovery</button>
+                className={`view-btn${view === "nucleo" ? " active" : ""}`}
+                onClick={() => setView("nucleo")}
+              >Nucleo F411RE</button>
               <button
                 className={`view-btn${view === "daisy" ? " active" : ""}`}
                 onClick={() => setView("daisy")}
@@ -396,7 +357,7 @@ export default function App() {
               ? "Electrosmith Daisy Seed \u00b7 STM32H750IBK6 \u00b7 Cortex-M7"
               : view === "esp32c3"
                 ? "ESP32-C3 DevKit-M1 \u00b7 RISC-V RV32IMAC \u00b7 UART+GPIO simulation"
-                : "STM32F4 Discovery Kit \u00b7 Renode dual-board simulation"}
+                : "Nucleo F411RE \u00b7 STM32F411 \u00b7 Renode dual-board simulation"}
           </p>
         </div>
         <div className="pill-row">
@@ -408,23 +369,18 @@ export default function App() {
         <LogPanel
           systemLogs={systemLogs}
           monitorLogs={monitorLogs}
-          pcLog={pcLog}
           activeTab={activeLogTab}
           onTabChange={setActiveLogTab}
         />
 
         <div className="boards-panel">
-          <div className={`boards-content${(view !== activeScript || !simRunning) ? " boards-inactive" : ""}`}>
+          <div className={`boards-content${((view === "nucleo" ? "discovery" : view) !== activeScript || !simRunning) ? " boards-inactive" : ""}`}>
             {view === "daisy" ? (
               <DaisySeedBoard
                 outputLevel={outputLevel}
                 ledLevel={ledLevel}
                 logs={daisyUartLogs}
                 onClearLogs={() => setLogs((prev) => prev.filter((e) => !(e.stream === "uart" && e.machine === DAISY_MACHINE)))}
-                selectedPin={selectedDaisyPin}
-                onPinSelect={setSelectedDaisyPin}
-                onInjectLevel={onDaisyInjectLevel}
-                onPulsePin={onDaisyPulsePin}
                 oledElement={null}
                 breadboardElement={<BreadboardPanel oledElement={bbMode === "oled" ? <OledDisplay frame={oledFrame} small /> : null} onDown={handleBreadboardDown} onUp={handleBreadboardUp} onKnobRelease={handleKnobRelease} ledDuty={pa2LedDuty} mode={bbMode} />}
                 pinStates={daisyPinStates}
@@ -438,50 +394,55 @@ export default function App() {
               />
             ) : (
               <div className="boards-tab-content">
-              {BOARDS.map((board) => (
-                <BoardCard
-                  key={board.id}
-                  board={board}
-                  pinStates={pinStatesByBoard[board.id] || buildPinMap()}
-                  selectedPin={selectedPinByBoard[board.id] || "PA0"}
-                  onPinSelect={(pin) =>
-                    setSelectedPinByBoard((prev) => ({ ...prev, [board.id]: pin }))
-                  }
-                  firmwareOutputs={firmwareOutputsFor(board.id, pinStatesByBoard)}
-                  uartFilter={uartFilterByBoard[board.id] || { usart2: true, usart3: true }}
-                  onToggleFilter={(src) =>
-                    setUartFilterByBoard((prev) => ({
-                      ...prev,
-                      [board.id]: { ...prev[board.id], [src]: !prev[board.id][src] },
-                    }))
-                  }
-                  onClearLogs={() =>
-                    setLogs((prev) =>
-                      prev.filter(
-                        (e) =>
-                          !((e.stream === "uart" || e.stream === "hub") &&
-                            (e.machine || BOARDS[0].id) === board.id)
-                      )
-                    )
-                  }
-                  combinedUartLogs={combinedUartByBoard[board.id] || []}
-                  voltage={voltageByBoard[board.id] || {}}
-                  onVoltageChange={(pin, v) =>
-                    setVoltageByBoard((prev) => ({
-                      ...prev,
-                      [board.id]: { ...(prev[board.id] || {}), [pin]: v },
-                    }))
-                  }
-                  analogActive={analogActiveByBoard[board.id] || false}
-                  onToggleAnalog={() =>
-                    setAnalogActiveByBoard((prev) => ({ ...prev, [board.id]: !prev[board.id] }))
-                  }
-                  send={send}
-                  onPulsePin={(pin) => pulsePin(board.id, pin)}
-                  onInjectLevel={(pin, level) => injectPinLevel(board.id, pin, level)}
-                  onBoardButton={() => pulseBoardButton(board.id)}
-                />
-              ))}
+              {BOARDS.map((board) => {
+                const lastPc = lastPcByBoard[board.id];
+                return (
+                  <div key={board.id} className="board-column-wrap">
+                    <div className="board-debug-line">
+                      {lastPc ? (
+                        <>
+                          <span className="log-plain-ts">{new Date(lastPc.ts).toLocaleTimeString()}</span>
+                          <span className="log-plain-board">[{lastPc.machine}]</span>
+                          {lastPc.file && <span className="log-pc-file">{lastPc.file.split("/").pop()}:{lastPc.line}</span>}
+                          {lastPc.func && <span className="log-pc-func">{lastPc.func}</span>}
+                          <span className="log-pc-addr">{lastPc.pc}</span>
+                        </>
+                      ) : <span className="log-pc-empty">\u2014</span>}
+                    </div>
+                    <BoardCard
+                      board={board}
+                      pinStates={pinStatesByBoard[board.id] || buildPinMap()}
+                      firmwareOutputs={firmwareOutputsFor(board.id, pinStatesByBoard)}
+                      uartFilter={uartFilterByBoard[board.id] || { usart2: true, usart1: true }}
+                      onToggleFilter={(src) =>
+                        setUartFilterByBoard((prev) => ({
+                          ...prev,
+                          [board.id]: { ...prev[board.id], [src]: !prev[board.id][src] },
+                        }))
+                      }
+                      onClearLogs={() =>
+                        setLogs((prev) =>
+                          prev.filter(
+                            (e) =>
+                              !((e.stream === "uart" || e.stream === "hub") &&
+                                (e.machine || BOARDS[0].id) === board.id)
+                          )
+                        )
+                      }
+                      combinedUartLogs={combinedUartByBoard[board.id] || []}
+                      voltage={voltageByBoard[board.id] || {}}
+                      onVoltageChange={(pin, v) =>
+                        setVoltageByBoard((prev) => ({
+                          ...prev,
+                          [board.id]: { ...(prev[board.id] || {}), [pin]: v },
+                        }))
+                      }
+                      send={send}
+                      onBoardButton={() => pulseBoardButton(board.id)}
+                    />
+                  </div>
+                );
+              })}
               </div>
             )}
           </div>

@@ -11,6 +11,3 @@ void write_pattern(uint8_t pattern);
 
 int app_button_init(void);
 int app_button_read(void);
-
-int app_mode_leds_init(void);
-void update_mode_leds(uint8_t m);

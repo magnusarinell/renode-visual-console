@@ -23,15 +23,15 @@ static void uart_irq_handler(const struct device *dev, void *user_data)
 
 int app_uart_init(void)
 {
-    printk("Attempting to get USART2 device...\n");
-    uart_inter_board = DEVICE_DT_GET(DT_NODELABEL(usart2));
+    printk("Attempting to get USART1 device...\n");
+    uart_inter_board = DEVICE_DT_GET(DT_NODELABEL(usart1));
 
     if (uart_inter_board == NULL) {
-        printk("ERROR: USART2 device NULL (DT node not found)\n");
+        printk("ERROR: USART1 device NULL (DT node not found)\n");
         return -1;
     }
     if (!device_is_ready(uart_inter_board)) {
-        printk("ERROR: USART2 device not ready\n");
+        printk("ERROR: USART1 device not ready\n");
         uart_inter_board = NULL;
         return -1;
     }
@@ -39,7 +39,7 @@ int app_uart_init(void)
     uart_irq_callback_set(uart_inter_board, uart_irq_handler);
     uart_irq_rx_enable(uart_inter_board);
 
-    printk("SUCCESS: Inter-board UART initialized (USART2 @ 115200, IRQ RX)\n");
+    printk("SUCCESS: Inter-board UART initialized (USART1 @ 115200, IRQ RX)\n");
     return 0;
 }
 

@@ -30,7 +30,7 @@ int app_gpio_irq_init(void)
         return -1;
     }
 
-    gpio_pin_configure(irq_gpio_dev, IRQ_GPIO_PIN, GPIO_INPUT);
+    gpio_pin_configure(irq_gpio_dev, IRQ_GPIO_PIN, GPIO_INPUT | GPIO_PULL_DOWN);
     gpio_init_callback(&gpio_irq_cb, gpio_irq_callback, BIT(IRQ_GPIO_PIN));
     gpio_add_callback(irq_gpio_dev, &gpio_irq_cb);
     gpio_pin_interrupt_configure(irq_gpio_dev, IRQ_GPIO_PIN, GPIO_INT_EDGE_TO_ACTIVE);

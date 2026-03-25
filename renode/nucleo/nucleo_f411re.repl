@@ -1,0 +1,15 @@
+// Renode platform description for STM32F411RE-Nucleo64
+// STM32F411RE: Cortex-M4 @ 96MHz
+//   LD2  : GPIOA pin 5  (active HIGH)
+//   B1   : GPIOC pin 13 (active LOW)
+//   USART2 (PA2/PA3): Zephyr console / debug output (TCP ServerSocketTerminal)
+//   USART1 (PB6/PB7): Inter-board UART Hub
+//
+// Note: stm32f4.repl models 256KB SRAM / 2MB Flash. F411RE has 128KB / 512KB,
+// but the firmware is linked for those sizes so simulation is unaffected.
+
+using "platforms/cpus/stm32f4.repl"
+
+// USER button B1 on PC13 (active LOW on real board; Renode Button is active HIGH)
+userButton: Miscellaneous.Button @ gpioPortC
+    -> gpioPortC@13

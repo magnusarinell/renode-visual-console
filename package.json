@@ -4,7 +4,9 @@
   "version": "0.1.0",
   "scripts": {
     "deps": "npm install && npm --prefix backend install && npm --prefix frontend install",
-    "build": "bash scripts/build_disco.sh && bash scripts/build_daisy.sh seed/Blink && bash scripts/build_daisy.sh seed/OLED && bash scripts/build_daisy.sh seed/Button && bash scripts/build_daisy.sh seed/Knob && bash scripts/build_espidf.sh",
+    "build": "bash scripts/build_nucleo.sh && bash scripts/build_daisy.sh seed/Blink && bash scripts/build_daisy.sh seed/OLED && bash scripts/build_daisy.sh seed/Button && bash scripts/build_daisy.sh seed/Knob && bash scripts/build_espidf.sh",
+    "build:nucleo": "bash scripts/build_nucleo.sh",
+    "build:disco": "bash scripts/build_disco.sh",
     "build:daisy": "bash scripts/build_daisy.sh",
     "build:daisy:blink": "bash scripts/build_daisy.sh seed/Blink",
     "build:daisy:oled": "bash scripts/build_daisy.sh seed/OLED",

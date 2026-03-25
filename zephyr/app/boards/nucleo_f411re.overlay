@@ -1,0 +1,27 @@
+/*
+ * Zephyr DTS overlay for STM32F411RE-Nucleo (nucleo_f411re)
+ *
+ * Pin assignment:
+ *   LD2   : PA5  (led0, GPIO_ACTIVE_HIGH)   — defined in base DTS
+ *   B1    : PC13 (sw0,  GPIO_ACTIVE_LOW)    — defined in base DTS
+ *   USART2: PA2/PA3  → zephyr,console       — defined in base DTS
+ *   USART1: PB6/PB7  → inter-board UART hub — defined in base DTS (status okay)
+ *
+ * Extra GPIO outputs on Morpho connector (CN7):
+ *   led1 = PB12, led2 = PB13, led3 = PB14
+ *   Driven by main loop in rotating chase pattern to show GPIO activity.
+ */
+
+/ {
+	extra_leds {
+		compatible = "gpio-leds";
+		extra_led0: extra_led0 { gpios = <&gpiob 12 GPIO_ACTIVE_HIGH>; };
+		extra_led1: extra_led1 { gpios = <&gpiob 13 GPIO_ACTIVE_HIGH>; };
+		extra_led2: extra_led2 { gpios = <&gpiob 14 GPIO_ACTIVE_HIGH>; };
+	};
+	aliases {
+		led1 = &extra_led0;
+		led2 = &extra_led1;
+		led3 = &extra_led2;
+	};
+};

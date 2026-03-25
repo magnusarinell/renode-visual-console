@@ -3,6 +3,10 @@
 #include <zephyr/device.h>
 #include <zephyr/drivers/gpio.h>
 
+/* Nucleo F411RE:
+ *   led0 = LD2 (PA5) — toggled by received TOGGLE_1 command
+ *   led1..3 = PB12/PB13/PB14 (Morpho CN7) — driven by main loop chase pattern
+ */
 static const struct gpio_dt_spec led  = GPIO_DT_SPEC_GET(DT_ALIAS(led0), gpios);
 static const struct gpio_dt_spec led1 = GPIO_DT_SPEC_GET_OR(DT_ALIAS(led1), gpios, {0});
 static const struct gpio_dt_spec led2 = GPIO_DT_SPEC_GET_OR(DT_ALIAS(led2), gpios, {0});
@@ -10,16 +14,11 @@ static const struct gpio_dt_spec led3 = GPIO_DT_SPEC_GET_OR(DT_ALIAS(led3), gpio
 
 static const struct gpio_dt_spec button = GPIO_DT_SPEC_GET(DT_ALIAS(sw0), gpios);
 
-/* Mode indicator LEDs: PB12=Blink, PB13=Chase, PB14=Showcase */
-static const struct gpio_dt_spec mode_led0 = GPIO_DT_SPEC_GET(DT_ALIAS(mode_led0), gpios);
-static const struct gpio_dt_spec mode_led1 = GPIO_DT_SPEC_GET(DT_ALIAS(mode_led1), gpios);
-static const struct gpio_dt_spec mode_led2 = GPIO_DT_SPEC_GET(DT_ALIAS(mode_led2), gpios);
-
 static const struct gpio_dt_spec *const outputs[] = {
-    &led,
-    &led1,
-    &led2,
-    &led3,
+    &led,   /* index 0: LD2/PA5 — TOGGLE_1 indicator */
+    &led1,  /* index 1: PB12 */
+    &led2,  /* index 2: PB13 */
+    &led3,  /* index 3: PB14 */
 };
 
 /* ── LED ── */
@@ -70,7 +69,7 @@ void clear_outputs(void)
 
 void write_pattern(uint8_t pattern)
 {
-    /* outputs[0] = led0/PD12 reserved for TOGGLE_1; only drive led1..3 */
+    /* outputs[0] = LD2 reserved for TOGGLE_1 rx; drive led1..3 with 3-bit pattern */
     for (uint32_t i = 1; i < ARRAY_SIZE(outputs); i++) {
         app_output_write(i, (pattern >> (i - 1)) & 0x1);
     }
@@ -89,21 +88,4 @@ int app_button_init(void)
 int app_button_read(void)
 {
     return gpio_pin_get_dt(&button);
-}
-
-/* ── Mode LEDs ── */
-
-int app_mode_leds_init(void)
-{
-    if (gpio_pin_configure_dt(&mode_led0, GPIO_OUTPUT_INACTIVE) != 0) return -1;
-    if (gpio_pin_configure_dt(&mode_led1, GPIO_OUTPUT_INACTIVE) != 0) return -1;
-    if (gpio_pin_configure_dt(&mode_led2, GPIO_OUTPUT_INACTIVE) != 0) return -1;
-    return 0;
-}
-
-void update_mode_leds(uint8_t m)
-{
-    gpio_pin_set_dt(&mode_led0, 1);
-    gpio_pin_set_dt(&mode_led1, m >= 1 ? 1 : 0);
-    gpio_pin_set_dt(&mode_led2, m >= 2 ? 1 : 0);
 }

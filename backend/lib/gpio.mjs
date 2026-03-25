@@ -16,7 +16,7 @@ export const DAISY_PIN_LABELS = {
 export const GPIO_PUSH_PORTS_DISCOVERY = {
   A: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
   B: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
-  D: [12, 13, 14, 15],
+  C: [13], // PC13 = B1 user button
 };
 
 export const GPIO_PUSH_PORTS_DAISY = {

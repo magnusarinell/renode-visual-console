@@ -6,46 +6,60 @@ export const BOARDS = [
   { id: "board_1", label: "Board B" },
 ];
 
+// Nucleo F411RE Arduino header CN5 (left side, top to bottom)
 export const LEFT_HEADER_PINS = [
-  "PC13", "PC14", "PC15", "PH0", "PH1",
-  "PC0", "PC1", "PC2", "PC3", "PA0", "PA1", "PA2", "PA3", "PA4", "PA5",
-  "PA6", "PA7", "PC4", "PC5", "PB0", "PB1", "PB2",
-  "PE7", "PE8", "PE9", "PE10", "PE11", "PE12", "PE13", "PE14", "PE15",
+  "PC10", "PC11", "PC12", "PD2",           // CN7 Morpho left (4)
+  "VDD",  "BOOT0", "NC",  "NC",            // Power/boot (skip)
+  "PA13", "PA14", "PA15", "PB7",
+  "PC13", "PC14", "PC15",
+  "PH0",  "PH1",
+  "VBAT", "PC2",  "PC3",
+  // Arduino left column CN6 (A0-A5)
+  "PA0",  "PA1",  "PA4",  "PB0",  "PC1",  "PC0",
 ];
 
+// Nucleo F411RE Arduino header CN5 (right side, top to bottom)
 export const RIGHT_HEADER_PINS = [
-  "PB10", "PB11", "PB12", "PB13", "PB14",
-  "PB15", "PD8", "PD9", "PD10", "PD11", "PD12", "PD13", "PD14", "PD15",
-  "PA8", "PA9", "PA10", "PA11", "PA12", "PA15",
-  "PB3", "PB4", "PB5", "PB6", "PB7", "PB8", "PB9", "PC6", "PC7", "PC8",
-  "PC9", "PC10", "PC11", "PC12", "PD0", "PD1", "PD2", "PD3", "PD4",
+  // Arduino right column CN5 (D0-D15)
+  "PA3",  "PA2",  "PA10", "PB3",
+  "PB5",  "PB4",  "PB10", "PA8",
+  "PA9",  "PC7",  "PB6",  "PA7",
+  "PA6",  "PA5",  "PB9",  "PB8",
+  // Morpho right CN10
+  "PC9",  "PC8",  "PC6",  "PC5",
+  "PA12", "PA11", "PB12", "PB11",
+  "PB2",  "PB1",
 ];
 
 export const PIN_ROWS = LEFT_HEADER_PINS.map((left, idx) => [left, RIGHT_HEADER_PINS[idx]]);
 
+// Nucleo F411RE firmware pin assignment:
+//   LD2    : PA5  (led0, active HIGH) — TOGGLE_1 indicator
+//   B1     : PC13 (sw0,  active LOW) — mode cycle button
+//   USART2 : PA2 TX / PA3 RX  — Zephyr console (ST-Link VCP)
+//   USART1 : PB6 TX / PB7 RX  — inter-board UART hub
+//   PB5    : GPIO IRQ input → sends TOGGLE_1 on rising edge
 export const FIRMWARE_PIN_PROFILE = {
-  PA0: { role: "input",  label: "sw0 / B1" },
-  PA1: { role: "adc",   label: "ADC1 IN1" },
-  PA2: { role: "uart",  label: "USART2 TX" },
-  PA3: { role: "uart",  label: "USART2 RX" },
-  PA6: { role: "adc",   label: "ADC1 IN6" },
-  PB5: { role: "input", label: "GPIO IRQ" },
-  PB10: { role: "uart",   label: "USART3 TX" },
-  PB11: { role: "uart",   label: "USART3 RX" },
-  PB12: { role: "output", label: "MODE 1" },
-  PB13: { role: "output", label: "MODE 2" },
-  PB14: { role: "output", label: "MODE 3" },
-  PD12: { role: "output", label: "led0 / LD4" },
-  PD13: { role: "output", label: "LD3" },
-  PD14: { role: "output", label: "LD5" },
-  PD15: { role: "output", label: "LD6" },
+  PA5:  { role: "output", label: "led0 / LD2" },
+  PC13: { role: "input",  label: "sw0 / B1" },
+  PA0:  { role: "adc",    label: "ADC1 IN0 (A0)" },
+  PA1:  { role: "adc",    label: "ADC1 IN1 (A1)" },
+  PA2:  { role: "uart",   label: "USART2 TX" },
+  PA3:  { role: "uart",   label: "USART2 RX" },
+  PB5:  { role: "input",  label: "GPIO IRQ (D4)" },
+  PB6:  { role: "uart",   label: "USART1 TX" },
+  PB7:  { role: "uart",   label: "USART1 RX" },
+  PB12: { role: "output", label: "Chase 1 (CN7)" },
+  PB13: { role: "output", label: "Chase 2 (CN7)" },
+  PB14: { role: "output", label: "Chase 3 (CN7)" },
 };
 
 export const OUTPUT_PINS = Object.entries(FIRMWARE_PIN_PROFILE)
   .filter(([, cfg]) => cfg.role === "output")
   .map(([pin]) => pin);
 
-export const BOARD_LED_ORDER = ["PD13", "PD12", "PD14", "PD15"]; // LD3, LD4, LD5, LD6
+// PA5 = LD2 (TOGGLE_1 indicator), PB12-14 = chase pattern outputs
+export const BOARD_LED_ORDER = ["PA5", "PB12", "PB13", "PB14"];
 
 export const ALL_TRACKED_PINS = Array.from(
   new Set([...PIN_ROWS.flat(), ...OUTPUT_PINS, ...Object.keys(FIRMWARE_PIN_PROFILE)])

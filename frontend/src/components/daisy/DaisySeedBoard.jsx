@@ -1,10 +1,8 @@
 import "./Daisy.css";
 import {
-  DAISY_INPUT_PIN,
   DAISY_PIN_LEGEND,
   DAISY_PINOUT_LEFT,
   DAISY_PINOUT_RIGHT,
-  DAISY_SIGNAL_CARDS,
 } from "../../daisy-constants";
 
 function levelClass(level) {
@@ -16,42 +14,6 @@ function pinLevelClass(row, pinStates) {
   return levelClass(pinStates[row.stmPin] ?? null);
 }
 
-function DaisyPinCtrlTab({ selectedSignal, selectedPinWritable, onInjectLevel, onPulsePin }) {
-  const canDriveSignal =
-    selectedPinWritable &&
-    typeof onInjectLevel === "function" &&
-    typeof onPulsePin === "function";
-  return (
-    <div className="pin-ctrl-tab daisy-pin-ctrl-tab">
-      <div className="pin-ctrl-label">{selectedSignal.alias}</div>
-      <div className="pin-ctrl-label daisy-ctrl-stm">{selectedSignal.stmPin}</div>
-      <div className="pin-ctrl-actions">
-        <button
-          className="pin-inject-button"
-          onClick={() => onInjectLevel?.(selectedSignal.stmPin, true)}
-          disabled={!canDriveSignal}
-          title={`Set ${selectedSignal.stmPin} HIGH`}
-          type="button"
-        >H</button>
-        <button
-          className="pin-inject-button"
-          onClick={() => onInjectLevel?.(selectedSignal.stmPin, false)}
-          disabled={!canDriveSignal}
-          title={`Set ${selectedSignal.stmPin} LOW`}
-          type="button"
-        >L</button>
-        <button
-          className="pin-inject-button pulse"
-          onClick={() => onPulsePin?.(selectedSignal.stmPin)}
-          disabled={!canDriveSignal}
-          title={`Pulse ${selectedSignal.stmPin}`}
-          type="button"
-        >P</button>
-      </div>
-    </div>
-  );
-}
-
 // Pair: right-side pins 1-20 with left-side pins 21-40, interleaved so grid row N = (N, N+20)
 const PINS_A = DAISY_PINOUT_RIGHT.slice().sort((a, b) => a.number - b.number); // 1-20
 const PINS_B = DAISY_PINOUT_LEFT.slice().sort((a, b) => a.number - b.number);  // 21-40
@@ -61,22 +23,14 @@ export function DaisySeedBoard({
   ledLevel,
   logs = [],
   onClearLogs,
-  selectedPin,
-  onInjectLevel,
-  onPulsePin,
   oledElement,
   breadboardElement,
   pinStates = {},
 }) {
-  const activeSignalPin = selectedPin ?? DAISY_INPUT_PIN;
-  const selectedSignal  = DAISY_SIGNAL_CARDS.find((s) => s.stmPin === activeSignalPin)
-    ?? DAISY_SIGNAL_CARDS[0];
-  const selectedPinWritable = selectedSignal.role === "input";
-
   return (
     <div className="daisy-outer-wrap">
       <div className="daisy-board-with-com">
-      <div className="board-with-pin-ctrl daisy-board-with-ctrl">
+      <div className="daisy-board-with-ctrl">
         <div className="board-main-column">
 
         {/* ── Yellow PCB board shell — single visual board ── */}
@@ -154,13 +108,7 @@ export function DaisySeedBoard({
 
         </div>{/* /board-main-column */}
 
-        <DaisyPinCtrlTab
-          selectedSignal={selectedSignal}
-          selectedPinWritable={selectedPinWritable}
-          onInjectLevel={onInjectLevel}
-          onPulsePin={onPulsePin}
-        />
-      </div>{/* /board-with-pin-ctrl */}
+      </div>{/* /daisy-board-with-ctrl */}
 
         {/* ── COM card ── */}
         <div className="uart-card daisy-com-card">

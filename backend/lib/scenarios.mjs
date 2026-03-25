@@ -151,8 +151,8 @@ export async function handleLoadScript(scenario) {
     state.activeHubPeripheral  = null;
   } else {
     state.activeMachines       = ["board_0", "board_1"];
-    state.activeUartPeripheral = "sysbus.usart3";
-    state.activeHubPeripheral  = "sysbus.usart2";
+    state.activeUartPeripheral = "sysbus.usart2";
+    state.activeHubPeripheral  = "sysbus.usart1";
   }
   state.activeScenario = scenario;
   state.rpcQueue = Promise.resolve();
@@ -168,7 +168,7 @@ export async function handleLoadScript(scenario) {
   const newScript =
     scenario === "daisy" ? path.join(repoRoot, "renode", "daisy", "daisy_seed.resc") :
     scenario === "esp32c3" ? path.join(repoRoot, "renode", "esp32c3", "esp32c3.resc") :
-    path.join(repoRoot, "renode", "discovery", "discovery_dual.resc");
+    path.join(repoRoot, "renode", "nucleo", "nucleo_dual.resc");
   const newScriptPosix = newScript.replace(/\\/g, "/");
   emitLog("system", `Loading script: ${newScriptPosix}`);
 

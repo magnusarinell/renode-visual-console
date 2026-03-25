@@ -48,15 +48,17 @@ export default async function wsRoutes(fastify) {
         if (msg.type === "action") {
           const machine = resolveMachine(msg.machine);
           if (msg.action === "toggle_button") {
-            sendMonitorCommand("gpioPortA.UserButton Toggle", machine);
+            // Simulate B1 press (PC13 active LOW): pull LOW then release after 200 ms
+            sendMonitorCommand("sysbus.gpioPortC OnGPIO 13 false", machine);
+            setTimeout(() => sendMonitorCommand("sysbus.gpioPortC OnGPIO 13 true", machine), 200);
             return;
           }
           if (msg.action === "press_button") {
-            sendMonitorCommand("gpioPortA.UserButton Pressed true", machine);
+            sendMonitorCommand("sysbus.gpioPortC OnGPIO 13 false", machine);
             return;
           }
           if (msg.action === "release_button") {
-            sendMonitorCommand("gpioPortA.UserButton Pressed false", machine);
+            sendMonitorCommand("sysbus.gpioPortC OnGPIO 13 true", machine);
             return;
           }
         }
@@ -122,7 +124,7 @@ export default async function wsRoutes(fastify) {
             return;
           }
 
-          const PIN_TO_ADC_CH = { PA1: 1, PA6: 6 };
+          const PIN_TO_ADC_CH = { PA0: 0, PA1: 1 };
           const ch = PIN_TO_ADC_CH[msg.pin];
           if (ch !== undefined) {
             executeRenodeCommandSilent(`sysbus.adc1 SetVoltage ${ch} ${v}`, machine).catch(() => {});
