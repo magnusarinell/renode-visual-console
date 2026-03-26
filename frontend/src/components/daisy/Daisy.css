@@ -45,6 +45,7 @@
 /* ── Yellow PCB board shell ───────────────────────────────────────────────── */
 
 .daisy-board-shell {
+  width: 250px;
   position: relative;
   isolation: isolate;
   border-radius: 0;
@@ -481,6 +482,7 @@
 .daisy-pin          { background: var(--daisy-pin-name); }
 
 .daisy-board-with-com {
+  width: 250px;
   display: flex;
   flex-direction: column;
 }
