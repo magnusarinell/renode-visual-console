@@ -57,6 +57,7 @@ export const state = {
   // Poll loop timers
   _oledPollTimer: null,
   _pcPollTimer: null,
+  _adcReadbackPollTimer: null,
 
   // WebSocket clients and log replay buffer
   clients: new Set(),

@@ -2,7 +2,7 @@
 #include <zephyr/kernel.h>
 #include <zephyr/sys/printk.h>
 
-volatile uint32_t blink_interval_ms = 500;
+volatile uint32_t blink_interval_ms = 150;
 
 #define ADC_THREAD_STACK_SIZE 512
 #define ADC_THREAD_PRIORITY   5

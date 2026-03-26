@@ -45,6 +45,9 @@ export default function App() {
   const [voltageByBoard, setVoltageByBoard]   = useState(() =>
     Object.fromEntries(BOARDS.map((b) => [b.id, {}]))
   );
+  const [adcReadbackByBoard, setAdcReadbackByBoard] = useState(() =>
+    Object.fromEntries(BOARDS.map((b) => [b.id, {}]))
+  );
 
   // ── Breadboard mode: derived from activated ELF filename ─────────────────
   // Only updates when the user clicks Activate, not on dropdown selection.
@@ -130,6 +133,12 @@ export default function App() {
       });
     },
     onLog: (stream, text, machine) => addLog(stream, text, machine),
+    onAdcReadback: (machine, pin, voltage) => {
+      setAdcReadbackByBoard((prev) => ({
+        ...prev,
+        [machine]: { ...(prev[machine] || {}), [pin]: voltage },
+      }));
+    },
   });
 
   // ── Fallback GPIO poll (discovery) ──────────────────────────────────────────
@@ -378,18 +387,8 @@ export default function App() {
                       board={board}
                       pinStates={pinStatesByBoard[board.id] || buildPinMap()}
                       firmwareOutputs={firmwareOutputsFor(board.id, pinStatesByBoard)}
-                      onClearLogs={() =>
-                        setLogs((prev) =>
-                          prev.filter(
-                            (e) =>
-                              !(e.stream === "uart" &&
-                                (e.machine || BOARDS[0].id) === board.id)
-                          )
-                        )
-                      }
                       uartLogs={uartLogsByBoard[board.id] || []}
                       pcLogs={pcLogsByBoard[board.id] || []}
-                      onClearPcLogs={() => setPcLog((prev) => prev.filter((e) => e.machine !== board.id))}
                       voltage={voltageByBoard[board.id] || {}}
                       onVoltageChange={(pin, v) =>
                         setVoltageByBoard((prev) => ({
@@ -397,6 +396,7 @@ export default function App() {
                           [board.id]: { ...(prev[board.id] || {}), [pin]: v },
                         }))
                       }
+                      adcReadback={adcReadbackByBoard[board.id] || {}}
                       send={send}
                       onBoardButton={() => pulseBoardButton(board.id)}
                     />

@@ -4,7 +4,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { state } from "../state.mjs";
 import { emit, emitLog } from "./broadcast.mjs";
 import { executeRenodeCommandSilent } from "./rpc.mjs";
-import { resolveAddr2line, getElfPathForScenario } from "./elfs.mjs";
+import { resolveAddr2line, getElfPathForScenario, getBlinkIntervalMsAddr } from "./elfs.mjs";
 
 export const OLED_FRAME_PATH = path.join(os.tmpdir(), "renode_oled_frame.bin");
 
@@ -68,5 +68,45 @@ export function stopPcPollLoop() {
   if (state._pcPollTimer) {
     clearInterval(state._pcPollTimer);
     state._pcPollTimer = null;
+  }
+}
+
+// ── ADC readback poll (discovery / nucleo scenario) ─────────────────────────
+// Reads blink_interval_ms from simulated RAM and converts back to voltage.
+// This gives the UI a genuine Renode-sourced voltage reading.
+
+async function pollAdcReadback() {
+  if (!state.renodeReady || !state.renodeRunning || state.activeScenario !== "discovery") return;
+  const addr = getBlinkIntervalMsAddr();
+  if (addr === null) return;
+
+  for (const machine of state.activeMachines) {
+    if (!machine) continue;
+    try {
+      const result = await executeRenodeCommandSilent(
+        `sysbus ReadDoubleWord 0x${addr.toString(16)}`,
+        machine
+      );
+      const raw = (result.return || result.output || "").trim();
+      // ReadDoubleWord returns hex (e.g. "0x7D0") — use Number() to handle both hex and decimal
+      const m = raw.match(/(0x[0-9a-fA-F]+|\d+)/);
+      if (!m) continue;
+      const blinkMs = Number(m[1]);
+      // Reverse the mapping: blinkMs = 300 - (v/3.3)*290  →  v = (300-blinkMs)/290*3.3
+      const voltage = Math.max(0, Math.min(3.3, ((300 - blinkMs) / 290) * 3.3));
+      emit({ type: "adc_readback", machine, pin: "PA0", voltage, blinkMs, ts: Date.now() });
+    } catch { /* ignore transient errors */ }
+  }
+}
+
+export function startAdcReadbackPollLoop() {
+  if (state._adcReadbackPollTimer || state.activeScenario !== "discovery") return;
+  state._adcReadbackPollTimer = setInterval(() => pollAdcReadback().catch(() => {}), 800);
+}
+
+export function stopAdcReadbackPollLoop() {
+  if (state._adcReadbackPollTimer) {
+    clearInterval(state._adcReadbackPollTimer);
+    state._adcReadbackPollTimer = null;
   }
 }

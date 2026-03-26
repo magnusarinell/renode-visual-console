@@ -14,10 +14,10 @@ import { BACKEND_WS_URL, BOARDS } from "../constants";
  * @param {(msg: object) => void} [callbacks.onHello]
  * @param {(machine: string, pc: string) => void} [callbacks.onPcValue]
  */
-export function useWebSocket({ onStatus, onPinState, onLog, onScriptLoaded, onOledFrame, onHello, onPcValue, onPwmState }) {
+export function useWebSocket({ onStatus, onPinState, onLog, onScriptLoaded, onOledFrame, onHello, onPcValue, onPwmState, onAdcReadback }) {
   const wsRef = useRef(null);
-  const cbRef = useRef({ onStatus, onPinState, onLog, onScriptLoaded, onOledFrame, onHello, onPcValue, onPwmState });
-  cbRef.current = { onStatus, onPinState, onLog, onScriptLoaded, onOledFrame, onHello, onPcValue, onPwmState };
+  const cbRef = useRef({ onStatus, onPinState, onLog, onScriptLoaded, onOledFrame, onHello, onPcValue, onPwmState, onAdcReadback });
+  cbRef.current = { onStatus, onPinState, onLog, onScriptLoaded, onOledFrame, onHello, onPcValue, onPwmState, onAdcReadback };
 
   const [socketState, setSocketState] = useState("disconnected");
 
@@ -74,6 +74,9 @@ export function useWebSocket({ onStatus, onPinState, onLog, onScriptLoaded, onOl
           cbRef.current.onPcValue?.(msg.machine || "", msg.pc, msg.file, msg.line, msg.func);
         }
 
+        if (msg.type === "adc_readback" && typeof msg.voltage === "number") {
+          cbRef.current.onAdcReadback?.(msg.machine || "", msg.pin || "PA0", msg.voltage);
+        }
 
       } catch {
         cbRef.current.onLog("error", `Invalid JSON message: ${evt.data}`, null);

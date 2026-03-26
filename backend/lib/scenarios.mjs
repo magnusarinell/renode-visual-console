@@ -7,7 +7,7 @@ import { callXmlRpc, executeRenodeCommandSilent, executeRenodeScript } from "./r
 import { startUartStreaming, drainUartLines, startUartDrainLoop, stopUartDrainLoops, startHubStreaming, startHubDrainLoop, stopHubDrainLoops } from "./uart.mjs";
 import { startTcpUartStream, stopAllTcpUartStreams, startInterBoardRelay, stopInterBoardRelay } from "./tcp-uart.mjs";
 import { startGpioPushLoop, stopGpioPushLoops } from "./gpio.mjs";
-import { startOledPollLoop, stopOledPollLoop, startPcPollLoop, stopPcPollLoop, OLED_FRAME_PATH } from "./polls.mjs";
+import { startOledPollLoop, stopOledPollLoop, startPcPollLoop, stopPcPollLoop, startAdcReadbackPollLoop, stopAdcReadbackPollLoop, OLED_FRAME_PATH } from "./polls.mjs";
 import { sleep } from "./utils.mjs";
 
 export async function setDaisyElfVariable(elfPath) {
@@ -100,6 +100,7 @@ export async function connectToRobotServer() {
     if (state.activeScenario === "daisy" || state.activeScenario === "esp32c3" || state.activeScenario === "discovery") {
       startPcPollLoop();
     }
+    if (state.activeScenario === "discovery") startAdcReadbackPollLoop();
   } catch (err) {
     state.renodeRunning = false;
     state.renodeReady = false;
@@ -111,6 +112,7 @@ export async function connectToRobotServer() {
     stopGpioPushLoops();
     stopOledPollLoop();
     stopPcPollLoop();
+    stopAdcReadbackPollLoop();
     emit({ type: "status", running: false, ts: Date.now() });
     emitLog("system", `Cannot connect to Renode: ${err.message || "no response"} — retrying in 5s\u2026`);
     state._renodeRetryTimer = setTimeout(() => {
@@ -140,6 +142,7 @@ export async function handleLoadScript(scenario) {
   stopGpioPushLoops();
   stopOledPollLoop();
   stopPcPollLoop();
+  stopAdcReadbackPollLoop();
   state.uartTesterReadyByMachine.clear();
   state.uartTesterIdByMachine.clear();
   state.hubTesterReadyByMachine.clear();
@@ -248,6 +251,7 @@ export async function handleLoadScript(scenario) {
   if (state.activeScenario === "daisy" || state.activeScenario === "esp32c3" || state.activeScenario === "discovery") {
     startPcPollLoop();
   }
+  if (state.activeScenario === "discovery") startAdcReadbackPollLoop();
 }
 
 export async function handleClear() {
@@ -259,6 +263,7 @@ export async function handleClear() {
   stopGpioPushLoops();
   stopOledPollLoop();
   stopPcPollLoop();
+  stopAdcReadbackPollLoop();
   state.uartTesterReadyByMachine.clear();
   state.uartTesterIdByMachine.clear();
   state.hubTesterReadyByMachine.clear();

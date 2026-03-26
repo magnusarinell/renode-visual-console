@@ -2,7 +2,7 @@ import { useState } from "react";
 import { NucleoBoard } from "./NucleoBoard";
 import { NucleoBreakoutPanel } from "./NucleoBreakoutPanel";
 
-function UartCard({ logs, onClearLogs, pcLogs, onClearPcLogs }) {
+function UartCard({ logs, pcLogs }) {
   const [activeTab, setActiveTab] = useState("usart2");
   return (
     <div className="uart-card">
@@ -15,12 +15,6 @@ function UartCard({ logs, onClearLogs, pcLogs, onClearPcLogs }) {
           className={`uart-tab-btn${activeTab === "debug" ? " active" : ""}`}
           onClick={() => setActiveTab("debug")}
         >Debug</button>
-        <div className="uart-filter-bar">
-          <button
-            className="uart-filter-btn clear"
-            onClick={activeTab === "usart2" ? onClearLogs : onClearPcLogs}
-          >Clear</button>
-        </div>
       </div>
       {activeTab === "usart2" ? (
         <div className="log-lines">
@@ -60,12 +54,11 @@ export function BoardCard({
   board,
   pinStates,
   firmwareOutputs,
-  onClearLogs,
   uartLogs,
   pcLogs,
-  onClearPcLogs,
   voltage,
   onVoltageChange,
+  adcReadback,
   send,
   onBoardButton,
 }) {
@@ -73,30 +66,30 @@ export function BoardCard({
     <div className="board-main-column">
         {/* Board label + SVG visual (no green card wrapper) */}
         <div className="nucleo-board-section">
-          <div className="board-shell-label">NUCLEO F411RE · {board.id}</div>
           <div className="nucleo-strip">
-            <NucleoBoard
-              firmwareOutputs={firmwareOutputs}
-              pinStates={pinStates}
-              onBoardButton={onBoardButton}
+            <div className="board-column">
+              <div className="board-shell-label">NUCLEO F411RE · {board.id}</div>
+              <NucleoBoard
+                firmwareOutputs={firmwareOutputs}
+                pinStates={pinStates}
+                onBoardButton={onBoardButton}
+                pa0AdcVoltage={adcReadback?.["PA0"]}
+              />
+            </div>
+            {/* Breadboard panel: to the right of the board */}
+            <NucleoBreakoutPanel
+              initialAdcVolt={voltage?.["PA0"] ?? 1.65}
+              adcReadback={adcReadback?.["PA0"]}
+              onAdc={(v) => {
+                onVoltageChange("PA0", v);
+                send({ type: "analog", machine: board.id, pin: "PA0", voltage: v });
+              }}
             />
           </div>
-
-
         </div>
-          {/* Breadboard panel: replaces ADC slider + PB5 quick-card */}
-          <NucleoBreakoutPanel
-            initialAdcVolt={voltage?.["PA0"] ?? 1.65}
-            onAdc={(v) => {
-              onVoltageChange("PA0", v);
-              send({ type: "analog", machine: board.id, pin: "PA0", voltage: v });
-            }}
-          />
         <UartCard
           logs={uartLogs}
-          onClearLogs={onClearLogs}
           pcLogs={pcLogs}
-          onClearPcLogs={onClearPcLogs}
         />
       </div>
   );

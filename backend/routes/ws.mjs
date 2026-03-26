@@ -132,7 +132,7 @@ export default async function wsRoutes(fastify) {
           const ch = PIN_TO_ADC_CH[msg.pin];
           if (ch !== undefined) {
             executeRenodeCommandSilent(`sysbus.adc1 SetVoltage ${ch} ${v}`, machine).catch(() => {});
-            const blinkMs = Math.max(100, Math.round(2000 - (parseFloat(v) / 3.3) * 1900));
+            const blinkMs = Math.max(10, Math.round(300 - (parseFloat(v) / 3.3) * 290));
             const addr = getBlinkIntervalMsAddr();
             if (addr !== null) {
               const cmd = `sysbus WriteDoubleWord 0x${addr.toString(16)} ${blinkMs}`;

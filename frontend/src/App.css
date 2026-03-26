@@ -276,9 +276,10 @@ h1 {
 }
 
 .boards-tab-content {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1.2rem;
+  display: flex;
+  flex-direction: row;
+  gap: 70px;
+  justify-content: flex-start;
   align-items: start;
 }
 
@@ -286,7 +287,8 @@ h1 {
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
-  max-width: 460px;
+  width: 450px;
+  flex-shrink: 0;
 }
 
 .board-debug-line {
@@ -435,8 +437,8 @@ h1 {
 .board-main-column {
   display: flex;
   flex-direction: column;
-  flex: 1;
-  min-width: 0;
+  width: 450px;
+  flex-shrink: 0;
   gap: 15px;
 }
 
@@ -1062,18 +1064,20 @@ h1 {
   background: transparent;
   border: none;
   border-bottom: 2px solid transparent;
-  color: #4a7a90;
+  border-radius: 0;
+  color: #6a8898;
   font-size: 0.78rem;
   font-weight: 600;
   padding: 0.45rem 1.1rem;
   cursor: pointer;
   letter-spacing: 0.03em;
   white-space: nowrap;
-  transition: color 0.15s;
+  transition: color 0.15s, border-color 0.15s;
 }
 
 .uart-tab-btn:hover {
-  color: #89d9b0;
+  color: #a8c8d8;
+  border-color: #2e4a58;
 }
 
 .uart-tab-btn.active {
@@ -1509,17 +1513,33 @@ button:hover {
 .nucleo-strip {
   display: flex;
   flex-direction: row;
-  align-items: center;
+  align-items: stretch;
   gap: 0;
+}
+
+/* Board column: label + SVG board */
+.nucleo-strip .board-column {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 /* SVG board takes available center space */
 .nucleo-svg-rotated {
-  flex: 1 1 0;
-  min-width: 0;
   display: block;
   width: 100%;
   height: auto;
+}
+
+/* Pot panel to the right of the board inside nucleo-strip */
+.nucleo-strip .bb-comp-block {
+  flex: 0 0 auto;
+  align-self: center;
+  border-left: 1px solid #1e3040;
+  padding-left: 0.6rem;
+  padding-right: 0.4rem;
 }
 
 /* ── NucleoBreakoutPanel (breadboard) ───────────────────────────── */

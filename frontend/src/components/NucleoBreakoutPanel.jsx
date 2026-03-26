@@ -30,7 +30,7 @@ function Knob({ value, onChange, onRelease }) {
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerLeave={handlePointerUp}
-      title={`PA0 · ${(value * 3.3).toFixed(2)} V`}
+      title={`A0 · ${(value * 3.3).toFixed(2)} V`}
     >
       <div className="bb-knob" style={{ transform: `rotate(${angle}deg)` }}>
         <span className="bb-knob-dot" />
@@ -48,17 +48,17 @@ function Knob({ value, onChange, onRelease }) {
  * Props:
  *   onAdc(voltage)   — send analog voltage for PA0
  *   initialAdcVolt   — starting knob voltage (default 1.65)
+ *   adcReadback      — voltage read back from Renode memory (undefined = not yet available)
  */
-export function NucleoBreakoutPanel({ onAdc, initialAdcVolt = 1.65 }) {
+export function NucleoBreakoutPanel({ onAdc, initialAdcVolt = 1.65, adcReadback }) {
   const [knobVal, setKnobVal] = useState(initialAdcVolt / 3.3);
 
   return (
     <div className="bb-comp-block">
-      <div className="bb-comp-label">Pot · PA0</div>
+      <div className="bb-comp-label">A0</div>
       <Knob
         value={knobVal}
-        onChange={setKnobVal}
-        onRelease={(v) => onAdc?.(v * 3.3)}
+        onChange={(v) => { setKnobVal(v); onAdc?.(v * 3.3); }}
       />
       <span className="bb-pin-ref" style={{ color: "#59ff6a" }}>{(knobVal * 3.3).toFixed(2)} V</span>
     </div>

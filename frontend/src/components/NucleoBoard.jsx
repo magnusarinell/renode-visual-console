@@ -40,6 +40,8 @@ const POS = {
   morphoPB12: { x: ORIG_H - 9,  y: 143.5 },  // 160.28, 139.32 — CN10-16 even, PB12
   morphoPB13: { x: ORIG_H - 9,  y: 194.04 },  // 160.28, 194.04 — CN10-30 even, PB13
   morphoPB14: { x: ORIG_H - 9,  y: 186.84 },  // 160.28, 186.84 — CN10-28 even, PB14
+  // PA0 / A0 — CN7 left-side Arduino connector (approximate, adjust as needed)
+  pinPA0:     { x: 99, y: 50 },
 };
 
 function pinFill(out) {
@@ -52,12 +54,18 @@ function pinStroke(out) {
   return out.level ? "#59ff6a" : "#2a4430";
 }
 
-export function NucleoBoard({ firmwareOutputs, pinStates, onBoardButton }) {
+export function NucleoBoard({ firmwareOutputs, pinStates, onBoardButton, pa0AdcVoltage }) {
   const ld2  = firmwareOutputs?.find((o) => o.pin === "PA5");
   const pb5  = pinStates?.["PB5"];
   const pb12 = firmwareOutputs?.find((o) => o.pin === "PB12");
   const pb13 = firmwareOutputs?.find((o) => o.pin === "PB13");
   const pb14 = firmwareOutputs?.find((o) => o.pin === "PB14");
+
+  // PA0 ADC voltage indicator: green intensity proportional to voltage (0–3.3 V)
+  const pa0Ratio  = pa0AdcVoltage !== undefined ? Math.max(0, Math.min(1, pa0AdcVoltage / 3.3)) : null;
+  const pa0Fill   = pa0Ratio !== null ? `rgba(89,255,106,${0.08 + pa0Ratio * 0.92})` : "transparent";
+  const pa0Stroke = pa0Ratio !== null ? `rgba(89,255,106,${0.3 + pa0Ratio * 0.7})` : "#444";
+  const pa0Glow   = pa0Ratio !== null && pa0Ratio > 0.05 ? `drop-shadow(0 0 ${(pa0Ratio * 5).toFixed(1)}px #59ff6a)` : "none";
 
   // LD2 colour: green when HIGH, dim green outline when LOW, dark when floating
   const ld2Fill    = ld2?.level === true  ? "#59ff6a" : ld2?.level === false ? "#1c3822" : "#2a2e30";
@@ -148,6 +156,20 @@ export function NucleoBoard({ firmwareOutputs, pinStates, onBoardButton }) {
           <title>{`${name}: ${p?.level === true ? "HIGH" : p?.level === false ? "LOW" : "FLOAT"}`}</title>
         </rect>
       ))}
+
+      {/* ── PA0 / A0: ADC voltage indicator — position is approximate, adjust x/y as needed ── */}
+      <rect
+        x={POS.pinPA0.x - 69.7}
+        y={POS.pinPA0.y + 135.3}
+        width={3}
+        height={3}
+        fill={pa0Fill}
+        stroke={pa0Stroke}
+        strokeWidth={0.7}
+        style={{ filter: pa0Glow, transition: "fill 0.25s, filter 0.25s" }}
+      >
+        <title>{`PA0 (A0) ADC: ${pa0AdcVoltage !== undefined ? pa0AdcVoltage.toFixed(2) + " V" : "—"}`}</title>
+      </rect>
     </svg>
   );
 }
