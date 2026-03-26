@@ -5,7 +5,7 @@ import { executeRenodeCommand, executeRenodeCommandSilent } from "../lib/rpc.mjs
 import { handleGpioPulse, handleGpioRequest, handleGpioScanRequest } from "../lib/gpio.mjs";
 import { handleLoadScript, handleClear, setDaisyElfVariable } from "../lib/scenarios.mjs";
 import { startRenode, stopRenode, sendMonitorCommand } from "../lib/renode.mjs";
-import { scanDaisyElfs, scanDiscoveryElfs, scanEsp32c3Elfs, getDaisyAdcDmaBufAddr, getBlinkIntervalMsAddr } from "../lib/elfs.mjs";
+import { scanDaisyElfs, scanDiscoveryElfs, getDaisyAdcDmaBufAddr, getBlinkIntervalMsAddr } from "../lib/elfs.mjs";
 import { resolveMachine } from "../lib/utils.mjs";
 
 export default async function wsRoutes(fastify) {
@@ -17,7 +17,6 @@ export default async function wsRoutes(fastify) {
       scenario: state.activeScenario,
       elf_list: scanDaisyElfs(),
       discovery_elf_list: scanDiscoveryElfs(),
-      esp32c3_elf_list: scanEsp32c3Elfs(),
       ts: Date.now(),
     }));
     for (const entry of state.logBuffer) {
@@ -70,7 +69,7 @@ export default async function wsRoutes(fastify) {
         if (msg.type === "load_script" && typeof msg.scenario === "string") {
           if (typeof msg.elf === "string" && msg.elf) {
             if (msg.scenario === "daisy") state._daisyElfOverride = msg.elf;
-            if (msg.scenario === "esp32c3") state._esp32c3ElfOverride = msg.elf;
+
           }
           handleLoadScript(msg.scenario).catch((err) =>
             emitLog("system", `Load script error: ${err.message}`)
@@ -81,10 +80,8 @@ export default async function wsRoutes(fastify) {
         if (msg.type === "select_binary" && typeof msg.elf === "string") {
           const scenario =
             msg.scenario === "discovery" ? "discovery" :
-            msg.scenario === "esp32c3"   ? "esp32c3" :
             "daisy";
           if (scenario === "discovery") state._discoveryElfOverride = msg.elf;
-          else if (scenario === "esp32c3") state._esp32c3ElfOverride = msg.elf;
           else state._daisyElfOverride = msg.elf;
           handleLoadScript(scenario).catch((err) =>
             emitLog("system", `select_binary error: ${err.message}`)

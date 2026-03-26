@@ -52,7 +52,6 @@ export const state = {
   // ELF overrides (set by env or runtime WS message)
   _daisyElfOverride: DAISY_ELF,
   _discoveryElfOverride: "",
-  _esp32c3ElfOverride: "",
 
   // Poll loop timers
   _oledPollTimer: null,

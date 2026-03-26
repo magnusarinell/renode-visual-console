@@ -38,18 +38,17 @@ export const simScript = process.env.RENODE_SCRIPT
 export const simScriptPosix = simScript.replace(/\\/g, "/");
 
 const _isDaisyScript   = simScript.includes("daisy");
-const _isEsp32c3Script = simScript.includes("esp32c3");
 const _hasScript       = Boolean(simScript);
 
 export const INITIAL_MACHINES = _hasScript
-  ? (_isDaisyScript ? ["daisy_0"] : (_isEsp32c3Script ? ["esp32c3_0"] : [...MACHINES]))
+  ? (_isDaisyScript ? ["daisy_0"] : [...MACHINES])
   : [];
 export const INITIAL_UART_PERIPHERAL = _hasScript
-  ? (_isDaisyScript ? "sysbus.usart1" : (_isEsp32c3Script ? "sysbus.uart0" : (RENODE_UART || "sysbus.usart3")))
+  ? (_isDaisyScript ? "sysbus.usart1" : (RENODE_UART || "sysbus.usart3"))
   : "";
 export const INITIAL_HUB_PERIPHERAL = null;
 export const INITIAL_SCENARIO = _hasScript
-  ? (_isDaisyScript ? "daisy" : (_isEsp32c3Script ? "esp32c3" : "discovery"))
+  ? (_isDaisyScript ? "daisy" : "discovery")
   : "none";
 
 function resolveWrapperTool(toolName) {

@@ -36,7 +36,6 @@ export function stopOledPollLoop() {
 async function pollPcValue() {
   const supported =
     state.activeScenario === "daisy" ||
-    state.activeScenario === "esp32c3" ||
     state.activeScenario === "discovery";
   if (!state.renodeReady || !state.renodeRunning || !supported) return;
   const machines = state.activeScenario === "discovery" ? state.activeMachines : [state.activeMachines[0]];
@@ -49,7 +48,7 @@ async function pollPcValue() {
       const m = raw.match(/0x[0-9a-fA-F]+/);
       if (!m) continue;
       const pc = m[0];
-      const src = state.activeScenario !== "esp32c3" ? await resolveAddr2line(pc, elfPath) : null;
+      const src = await resolveAddr2line(pc, elfPath);
       emit({ type: "pc_value", machine, pc, ...(src || {}), ts: Date.now() });
     } catch { /* ignore */ }
   }
@@ -58,7 +57,6 @@ async function pollPcValue() {
 export function startPcPollLoop() {
   const supported =
     state.activeScenario === "daisy" ||
-    state.activeScenario === "esp32c3" ||
     state.activeScenario === "discovery";
   if (state._pcPollTimer || !supported) return;
   state._pcPollTimer = setInterval(() => pollPcValue().catch(() => {}), 750);

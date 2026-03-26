@@ -38,9 +38,6 @@ export function getElfPathForScenario() {
   if (state.activeScenario === "discovery") {
     return resolveElf(state._discoveryElfOverride || "zephyr/build/zephyr/zephyr.elf");
   }
-  if (state.activeScenario === "esp32c3") {
-    return resolveElf(state._esp32c3ElfOverride || "");
-  }
   return "";
 }
 
@@ -98,12 +95,7 @@ export function scanDiscoveryElfs() {
   if (!existsSync(buildDir)) return [];
   try {
     return readdirSync(buildDir)
-      .filter((f) => f === "zephyr.elf")
+      .filter((f) => f.endsWith(".elf") && !f.includes("_pre"))
       .map((f) => `zephyr/build/zephyr/${f}`);
   } catch { return []; }
-}
-
-export function scanEsp32c3Elfs() {
-  const elfRel = "submodules/esp-idf/examples/get-started/hello_world/build/hello_world.elf";
-  return existsSync(path.join(repoRoot, elfRel)) ? [elfRel] : [];
 }

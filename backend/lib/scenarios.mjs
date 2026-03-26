@@ -18,14 +18,6 @@ export async function setDaisyElfVariable(elfPath) {
   await callXmlRpc("ExecuteCommand", [`$elf=@${elfPosix}`]);
 }
 
-export async function setEsp32c3ElfVariable(elfPath) {
-  const elf = elfPath || state._esp32c3ElfOverride;
-  if (!elf || state.activeScenario !== "esp32c3") return;
-  const elfPosix = path.resolve(repoRoot, elf).replace(/\\/g, "/");
-  emitLog("system", `Setting Renode $elf = ${elfPosix}`);
-  await callXmlRpc("ExecuteCommand", [`$elf=@${elfPosix}`]);
-}
-
 export async function connectToRobotServer() {
   if (state.renodeConnecting) return;
   if (state._renodeRetryTimer) {
@@ -74,12 +66,12 @@ export async function connectToRobotServer() {
         startTcpUartStream(machine, UART_SOCKET_PORT_BASE + portIndex);
       } else {
         await startUartStreaming(machine);
-        if (state.activeScenario === "daisy" || state.activeScenario === "esp32c3") {
-          const startRes = await callXmlRpc("ExecuteCommand", ["start"]).catch((e) => ({ status: "FAIL", error: e.message }));
-          emitLog("system", `Simulation start: ${startRes.status}${startRes.error ? " — " + startRes.error : ""}`, machine);
-        }
-        const initDrainLines   = state.activeScenario === "daisy" ? 15 : (state.activeScenario === "esp32c3" ? 5 : 15);
-        const initDrainTimeout = state.activeScenario === "daisy" ? "0.05" : (state.activeScenario === "esp32c3" ? "2.0" : "0.05");
+        if (state.activeScenario === "daisy") {
+        const startRes = await callXmlRpc("ExecuteCommand", ["start"]).catch((e) => ({ status: "FAIL", error: e.message }));
+        emitLog("system", `Simulation start: ${startRes.status}${startRes.error ? " — " + startRes.error : ""}`, machine);
+      }
+      const initDrainLines   = state.activeScenario === "daisy" ? 15 : 15;
+      const initDrainTimeout = state.activeScenario === "daisy" ? "0.05" : "0.05";
         await drainUartLines(machine, initDrainLines, initDrainTimeout);
         startUartDrainLoop(machine);
       }
@@ -97,7 +89,7 @@ export async function connectToRobotServer() {
       );
     }
     if (state.activeScenario === "daisy") startOledPollLoop();
-    if (state.activeScenario === "daisy" || state.activeScenario === "esp32c3" || state.activeScenario === "discovery") {
+      if (state.activeScenario === "daisy" || state.activeScenario === "discovery") {
       startPcPollLoop();
     }
     if (state.activeScenario === "discovery") startAdcReadbackPollLoop();
@@ -157,10 +149,7 @@ export async function handleLoadScript(scenario) {
     state.activeMachines       = ["daisy_0"];
     state.activeUartPeripheral = "sysbus.usart1";
     state.activeHubPeripheral  = null;
-  } else if (scenario === "esp32c3") {
-    state.activeMachines       = ["esp32c3_0"];
-    state.activeUartPeripheral = "sysbus.uart0";
-    state.activeHubPeripheral  = null;
+
   } else {
     state.activeMachines       = ["board_0", "board_1"];
     state.activeUartPeripheral = "sysbus.usart2";
@@ -179,13 +168,11 @@ export async function handleLoadScript(scenario) {
 
   const newScript =
     scenario === "daisy" ? path.join(repoRoot, "renode", "daisy", "daisy_seed.resc") :
-    scenario === "esp32c3" ? path.join(repoRoot, "renode", "esp32c3", "esp32c3.resc") :
     path.join(repoRoot, "renode", "nucleo", "nucleo_dual.resc");
   const newScriptPosix = newScript.replace(/\\/g, "/");
   emitLog("system", `Loading script: ${newScriptPosix}`);
 
   await setDaisyElfVariable();
-  await setEsp32c3ElfVariable();
   if (scenario === "discovery" && state._discoveryElfOverride) {
     const elfPosix = path.resolve(repoRoot, state._discoveryElfOverride).replace(/\\/g, "/");
     emitLog("system", `Setting Renode $elf = ${elfPosix}`);
@@ -212,12 +199,12 @@ export async function handleLoadScript(scenario) {
       startTcpUartStream(machine, UART_SOCKET_PORT_BASE + portIndex);
     } else {
       await startUartStreaming(machine);
-      if (state.activeScenario === "daisy" || state.activeScenario === "esp32c3") {
+      if (state.activeScenario === "daisy") {
         const startRes = await callXmlRpc("ExecuteCommand", ["start"]).catch((e) => ({ status: "FAIL", error: e.message }));
         emitLog("system", `Simulation start: ${startRes.status}${startRes.error ? " — " + startRes.error : ""}`, machine);
       }
-      const drainTimeout = state.activeScenario === "daisy" ? "0.0005" : "2.0";
-      const drainLines   = state.activeScenario === "daisy" ? 2 : 5;
+      const drainTimeout = state.activeScenario === "daisy" ? "0.0005" : "0.0005";
+      const drainLines   = state.activeScenario === "daisy" ? 2 : 2;
       await drainUartLines(machine, drainLines, drainTimeout);
       startUartDrainLoop(machine);
     }
@@ -248,7 +235,7 @@ export async function handleLoadScript(scenario) {
   }
 
   if (state.activeScenario === "daisy") startOledPollLoop();
-  if (state.activeScenario === "daisy" || state.activeScenario === "esp32c3" || state.activeScenario === "discovery") {
+  if (state.activeScenario === "daisy" || state.activeScenario === "discovery") {
     startPcPollLoop();
   }
   if (state.activeScenario === "discovery") startAdcReadbackPollLoop();
@@ -276,7 +263,6 @@ export async function handleClear() {
   state.activeScenario = "none";
   state._daisyElfOverride = DAISY_ELF;
   state._discoveryElfOverride = "";
-  state._esp32c3ElfOverride = "";
   state.rpcQueue = Promise.resolve();
   emit({ type: "status", running: false, ts: Date.now() });
   try { unlinkSync(OLED_FRAME_PATH); } catch { /* ok if missing */ }

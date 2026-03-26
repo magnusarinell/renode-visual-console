@@ -24,8 +24,6 @@ export const GPIO_PUSH_PORTS_DAISY = {
   C: [0, 1, 4, 7, 8, 9, 10, 11, 12],
 };
 
-export const GPIO_PUSH_PINS_ESP32C3 = [5];
-
 export function parsePinLabel(pinLabel) {
   const m = String(pinLabel || "").match(/^P([A-Z])(\d+)$/);
   if (!m) return null;
@@ -183,26 +181,6 @@ export async function handleGpioScanRequest(msg) {
 
 export async function pushGpioState(machine) {
   if (!state.renodeReady || !state.renodeRunning) return;
-
-  if (state.activeScenario === "esp32c3") {
-    let result;
-    try {
-      result = await executeRenodeCommandSilentGpio("sysbus ReadDoubleWord 0x60004004", machine);
-    } catch { return; }
-    if (!result || result.status === "FAIL") return;
-    const raw = `${result.return || ""} ${result.output || ""}`;
-    const m = raw.match(/0x([0-9a-fA-F]+)/);
-    const outReg = m ? parseInt(m[1], 16) >>> 0 : 0;
-    for (const pinNum of GPIO_PUSH_PINS_ESP32C3) {
-      const level = Boolean(outReg & (1 << pinNum));
-      const key = `${machine}:GPIO${pinNum}`;
-      if (state._gpioPrevState[key] !== level) {
-        state._gpioPrevState[key] = level;
-        emit({ type: "pin_state", machine, pin: `GPIO${pinNum}`, level, ts: Date.now() });
-      }
-    }
-    return;
-  }
 
   for (const [port, pins] of Object.entries(getGpioPushPorts())) {
     let result;
