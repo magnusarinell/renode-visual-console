@@ -26,7 +26,7 @@ export const MACHINES = (process.env.RENODE_MACHINES || "board_0,board_1")
 export const DEFAULT_MACHINE = MACHINES[0] || "board_0";
 export const DAISY_ELF = process.env.DAISY_ELF || "";
 export const renodeCmd = process.env.RENODE_CMD || "renode";
-export const LOG_BUFFER_MAX = 500;
+export const LOG_BUFFER_MAX = 5000;
 
 // TCP ports for Renode ServerSocketTerminal (one per discovery board).
 // Matches the ports in renode/discovery/discovery_dual.resc.

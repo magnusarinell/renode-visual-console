@@ -279,6 +279,11 @@ export default function App() {
     [pcLog]
   );
 
+  const daisyPcLogs = useMemo(
+    () => pcLog.filter((e) => e.machine === DAISY_MACHINE),
+    [pcLog]
+  );
+
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
@@ -346,9 +351,6 @@ export default function App() {
                 : "Nucleo F411RE \u00b7 STM32F411 \u00b7 Renode dual-board simulation"}
           </p>
         </div>
-        <div className="pill-row">
-          <span className={`pill ${simRunning ? "ok" : "warn"}`}>{statusLabel}</span>
-        </div>
       </section>
 
       <section className="board-list">
@@ -366,8 +368,7 @@ export default function App() {
                 outputLevel={outputLevel}
                 ledLevel={ledLevel}
                 logs={daisyUartLogs}
-                onClearLogs={() => setLogs((prev) => prev.filter((e) => !(e.stream === "uart" && e.machine === DAISY_MACHINE)))}
-                oledElement={null}
+                pcLogs={daisyPcLogs}
                 breadboardElement={<BreadboardPanel oledElement={bbMode === "oled" ? <OledDisplay frame={oledFrame} small /> : null} onDown={handleBreadboardDown} onUp={handleBreadboardUp} onKnobRelease={handleKnobRelease} ledDuty={pa2LedDuty} mode={bbMode} />}
                 pinStates={daisyPinStates}
               />

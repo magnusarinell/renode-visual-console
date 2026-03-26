@@ -18,13 +18,13 @@ export function LogPanel({ systemLogs, monitorLogs, activeTab, onTabChange }) {
           ))}
         </div>
         <div className="log-plain-area">
-          {activeTab === "system" && systemLogs.map((entry) => (
+          {activeTab === "system" && [...systemLogs].reverse().map((entry) => (
             <div className="log-plain-line" key={entry.id}>
               {entry.machine && <span className="log-plain-board">[{entry.machine}]</span>}
               {entry.line}
             </div>
           ))}
-          {activeTab === "monitor" && monitorLogs.map((entry) => (
+          {activeTab === "monitor" && [...monitorLogs].reverse().map((entry) => (
             <div className="log-plain-line" key={entry.id}>
               {entry.machine && <span className="log-plain-board">[{entry.machine}]</span>}
               <span className="log-plain-tag">{entry.stream}</span>{entry.line}

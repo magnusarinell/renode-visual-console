@@ -1,4 +1,4 @@
-export const MAX_LOG_LINES = 800;
+export const MAX_LOG_LINES = 5000;
 export const BACKEND_WS_URL = import.meta.env.VITE_BACKEND_WS_URL || "ws://localhost:8787";
 
 export const BOARDS = [

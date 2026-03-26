@@ -64,7 +64,7 @@ h1 {
 .heading-row {
   display: flex;
   align-items: center;
-  gap: 8rem;
+  gap: 230px;
 }
 
 .view-toggle {
@@ -199,10 +199,10 @@ h1 {
   display: flex;
   flex-direction: column;
   gap: 0;
-  position: sticky;
-  top: 1rem;
-  height: calc(100vh - 300px);
-  min-height: 0;
+  /* position: sticky; */
+  /* top: 3rem; */
+  /* height: calc(100vh - 300px); */
+  /* min-height: 0; */
 }
 
 .log-pc-panel {
@@ -289,6 +289,9 @@ h1 {
   gap: 0.3rem;
   width: 450px;
   flex-shrink: 0;
+  /* position: sticky; */
+  top: 1rem;
+  /* max-height: calc(100vh - 2rem); */
 }
 
 .board-debug-line {
@@ -1048,8 +1051,8 @@ h1 {
 .uart-card {
   display: flex;
   flex-direction: column;
-  height: 220px;
   flex-shrink: 0;
+  min-width: 0;
 }
 
 .uart-card-header {
@@ -1211,17 +1214,17 @@ button:hover {
 }
 
 .uart-card .log-lines {
-  flex: 1;
-  min-height: 0;
-  font-size: 0.62rem;
+  font-size: 0.75rem;
+  line-height: 1.55;
   word-break: break-all;
-  padding: 0.3rem 0.35rem;
+  padding: 0.4rem 0.5rem;
+  overflow-y: visible;
 }
 
 .log-ts {
-  color: #4a7a90;
-  margin-right: 0.45em;
-  font-size: 0.58rem;
+  color: #4a9a7a;
+  margin-right: 0.55em;
+  font-size: 0.68rem;
   flex-shrink: 0;
   font-variant-numeric: tabular-nums;
 }

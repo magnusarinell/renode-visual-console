@@ -4,6 +4,7 @@
   font-weight: 400;
   color: #edf3f5;
   background: radial-gradient(circle at 10% 0%, #1a313a 0%, #091216 45%, #060a0c 100%);
+  background-attachment: fixed;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;

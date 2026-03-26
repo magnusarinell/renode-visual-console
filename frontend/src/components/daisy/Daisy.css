@@ -15,16 +15,35 @@
 
 /* ── Outer layout ─────────────────────────────────────────────────────────── */
 
-.daisy-board-with-ctrl {
-  width: auto;
+.daisy-main-col {
+  width: 500px;
+  display: flex;
+  flex-direction: column;
   flex-shrink: 0;
+  gap: 15px;
 }
 
-.boards-inactive .daisy-board-with-ctrl {
+.daisy-board-strip {
+  width: 500px;
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 18px;
+}
+
+.boards-inactive .daisy-board-strip {
   filter: grayscale(0.2) brightness(1.03);
 }
 
-/* ── Outer flex row: board+ctrl left, badge table right ───────────────────────────── */
+.daisy-component-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  align-items: flex-start;
+  padding-top: 8px;
+}
+
+/* ── Outer flex row: main-col left, badge table right ───────────────────────────── */
 
 .daisy-outer-wrap {
   display: flex;
@@ -481,28 +500,14 @@
 .power              { background: var(--daisy-power); }
 .daisy-pin          { background: var(--daisy-pin-name); }
 
-.daisy-board-with-com {
-  width: 250px;
-  display: flex;
-  flex-direction: column;
-}
+/* .daisy-board-with-com removed — replaced by .daisy-main-col + .daisy-board-strip */
 
 /* ── COM card ─────────────────────────────────────────────────────────────── */
 
 .daisy-com-card {
   border-color: #2b3d44;
   border-radius: 8px;
-  background: #0b1012;
   box-shadow: none;
-}
-
-.daisy-com-label {
-  font-size: 0.65rem;
-  color: #98c898;
-  font-weight: 700;
-  letter-spacing: 0.07em;
-  padding: 0 0.25rem;
-  text-transform: uppercase;
 }
 
 /* ── Pin ctrl tab ─────────────────────────────────────────────────────────── */
@@ -526,8 +531,8 @@
     flex-direction: column;
   }
 
-  .daisy-board-with-ctrl {
-    width: 100%;
+  .daisy-board-strip {
+    flex-wrap: wrap;
   }
 
   .daisy-badge-panel {
@@ -556,16 +561,12 @@
   align-items: center;
   gap: 6px;
   flex-shrink: 0;
-  background: #0d1516;
-  border: 1px solid #2b3d44;
-  border-radius: 4px;
-  padding: 10px 12px;
 }
 
 .daisy-oled-label {
-  font-size: 0.62rem;
-  color: #5a7a80;
-  letter-spacing: 0.06em;
+  font-size: 0.61rem;
+  color: #8eaabb;
+  letter-spacing: 0.09em;
   text-transform: uppercase;
   white-space: nowrap;
 }
@@ -807,7 +808,7 @@
   height: 14px;
   border-radius: 50%;
   background: #1a0a00;
-  box-shadow: inset 0 1px 3px rgba(0,0,0,0.9), 0 0 0 1.5px #3a2010;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.9), 0 0 0 1.5px #b62501;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -866,6 +867,12 @@
   text-transform: uppercase;
   letter-spacing: 0.09em;
   color: #8eaabb;
+}
+
+.bb-comp-label-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 /* Vertical separator between components */
