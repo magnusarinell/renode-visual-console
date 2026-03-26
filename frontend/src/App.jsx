@@ -369,7 +369,7 @@ export default function App() {
                 ledLevel={ledLevel}
                 logs={daisyUartLogs}
                 pcLogs={daisyPcLogs}
-                breadboardElement={<BreadboardPanel oledElement={bbMode === "oled" ? <OledDisplay frame={oledFrame} small /> : null} onDown={handleBreadboardDown} onUp={handleBreadboardUp} onKnobRelease={handleKnobRelease} ledDuty={pa2LedDuty} mode={bbMode} />}
+                breadboardElement={activeScript === "daisy" && simRunning ? <BreadboardPanel oledElement={bbMode === "oled" ? <OledDisplay frame={oledFrame} small /> : null} onDown={handleBreadboardDown} onUp={handleBreadboardUp} onKnobRelease={handleKnobRelease} ledDuty={pa2LedDuty} mode={bbMode} /> : null}
                 pinStates={daisyPinStates}
               />
             ) : view === "esp32c3" ? (
